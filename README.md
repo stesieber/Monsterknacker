@@ -2,6 +2,8 @@
 
 Einmaleins-Lernapp für Kinder – Vue 3 + TypeScript, läuft als einzelne HTML-Datei.
 
+Quick & Dirty mit Claude Code entwickelt.
+
 ## Setup
 
 ```bash
