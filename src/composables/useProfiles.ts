@@ -1,6 +1,7 @@
 import { computed, reactive, watch } from 'vue';
 import type { AppData, Profile } from '../types/index';
 import { AVAILABLE_EMOJIS } from '../types/index';
+import type { TaskMap } from '../types/index';
 import { loadAppData, saveAppData } from './useStorage';
 
 // Module-level singleton state shared across all callers
@@ -66,6 +67,23 @@ export function useProfiles() {
     state.activeProfileId = null;
   }
 
+  function recordTaskAttempt(taskId: string, isCorrect: boolean): void {
+    const profile = state.profiles.find((p) => p.id === state.activeProfileId);
+    if (!profile) {
+      console.warn('[Monsterknacker] recordTaskAttempt: no active profile');
+      return;
+    }
+    if (!profile.tasks) profile.tasks = {} as TaskMap;
+    const existing = profile.tasks[taskId];
+    if (existing) {
+      existing.attempts++;
+      if (isCorrect) existing.correct++;
+      existing.lastAttemptAt = Date.now();
+    } else {
+      profile.tasks[taskId] = { attempts: 1, correct: isCorrect ? 1 : 0, lastAttemptAt: Date.now() };
+    }
+  }
+
   return {
     profiles,
     activeProfile,
@@ -75,5 +93,6 @@ export function useProfiles() {
     updateEmoji,
     deleteProfile,
     clearActiveProfile,
+    recordTaskAttempt,
   };
 }

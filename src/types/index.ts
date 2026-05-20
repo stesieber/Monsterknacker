@@ -1,3 +1,13 @@
+export interface TaskState {
+  attempts: number;
+  correct: number;
+  lastAttemptAt?: number;
+  box?: number;
+  monsterType?: number;
+}
+
+export type TaskMap = Record<string, TaskState>;
+
 export interface AppData {
   version: number;
   activeProfileId: string | null;
@@ -10,7 +20,7 @@ export interface Profile {
   emoji: string;
   createdAt: number;
   settings?: ProfileSettings;
-  tasks?: Record<string, unknown>;
+  tasks?: TaskMap;
   stats?: Record<string, unknown>;
 }
 

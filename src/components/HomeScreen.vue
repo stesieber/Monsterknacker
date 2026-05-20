@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useProfiles } from '../composables/useProfiles';
 
-const emit = defineEmits<{ switchProfile: [] }>();
+const emit = defineEmits<{ switchProfile: []; startPractice: [] }>();
 
 const { activeProfile, clearActiveProfile } = useProfiles();
 
@@ -22,9 +22,9 @@ function switchProfile() {
     </header>
 
     <main class="home-main">
-      <div class="placeholder">
-        <p>Hier kommt bald deine Übung 🚀</p>
-      </div>
+      <button class="practice-btn" type="button" @click="emit('startPractice')">
+        Üben starten
+      </button>
     </main>
   </div>
 </template>
@@ -88,14 +88,25 @@ function switchProfile() {
   justify-content: center;
 }
 
-.placeholder {
-  background: var(--color-surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 48px 32px;
-  text-align: center;
-  color: var(--color-text-muted);
-  font-size: 1.1rem;
+.practice-btn {
   width: 100%;
+  max-width: 360px;
+  min-height: 72px;
+  border-radius: var(--radius);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 16px rgba(91, 108, 255, 0.35);
+  transition: background 0.15s, transform 0.1s;
+}
+
+.practice-btn:hover {
+  background: var(--color-primary-dark);
+}
+
+.practice-btn:active {
+  transform: scale(0.97);
 }
 </style>
