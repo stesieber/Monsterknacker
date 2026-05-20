@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { formatMs } from '../utils/time';
 
 const props = defineProps<{
   taskCount: number;
   correctCount: number;
+  sessionMs?: number;
 }>();
 const emit = defineEmits<{ restart: []; exit: [] }>();
 
@@ -30,6 +32,10 @@ const percentage = computed(() =>
         </p>
         <p class="summary-percentage">Das sind {{ percentage }} %.</p>
       </template>
+
+      <p v-if="props.sessionMs !== undefined" class="summary-time">
+        Übungszeit: <strong>{{ formatMs(props.sessionMs) }}</strong>
+      </p>
 
       <div class="summary-actions">
         <button v-if="props.taskCount > 0" class="btn-primary" type="button" @click="emit('restart')">
@@ -81,6 +87,12 @@ const percentage = computed(() =>
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--color-primary);
+}
+
+.summary-time {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  margin-top: 4px;
 }
 
 .summary-actions {

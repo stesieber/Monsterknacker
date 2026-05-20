@@ -12,6 +12,9 @@
   --color-task-display: #1f2433;
   --font-size-task: 4rem;
   --font-size-task-mobile: 3rem;
+  --color-warning: #f59e0b;
+  --color-bar-bg: #e5e7eb;
+  --countdown-height: 8px;
   --radius: 16px;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }

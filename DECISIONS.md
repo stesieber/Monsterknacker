@@ -51,3 +51,35 @@ The summary is a phase of the session (`phase === 'summary'`), not a separate `S
 ## `100dvh` for practice and summary layouts
 
 Mobile browsers shrink the viewport when the address bar is visible. `100dvh` uses the dynamic viewport height (CSS level 4), preventing the bottom button from being clipped. Fallback gracefully on browsers without support (the layout still works, just with a potential small clip).
+
+---
+
+## Iteration 3 decisions
+
+## `setInterval` at 100 ms for CountdownBar
+
+100 ms gives smooth bar animation (10 fps) without burning CPU. The bar only needs sub-second visual resolution; 100 ms is imperceptible to users but avoids the overhead of `requestAnimationFrame` (which runs at 60 fps, overkill for a progress bar).
+
+## Drift-free timers via `Date.now()` deltas
+
+Both `useTaskTimer` and `useSessionTimer` record `Date.now()` at start/resume and accumulate elapsed time at pause/stop. They never increment a counter. This means the displayed time is always `Date.now() - startTime + accumulatedMs`, so long GC pauses or late interval callbacks do not cause drift.
+
+## Incremental time saving after each answered task
+
+Instead of saving practice time on `beforeunload` (unreliable, especially on mobile), the session timer delta is flushed to `profile.stats.totalPracticeMs` after every submitted answer (including timeouts). In the worst case — a browser crash mid-task — only the seconds of the one in-progress task are lost, which is acceptable.
+
+## Self-contained timer composables with their own event listeners
+
+Both `useTaskTimer` and `useSessionTimer` register their own `visibilitychange` listeners internally. This avoids tight coupling: `PracticeSession.vue` does not need to coordinate pause/resume between timers. Each composable is independently testable and reusable. Cleanup happens in `onScopeDispose`, so the listeners are removed when `PracticeSession` unmounts.
+
+## `sessionConfig` defaults to `{ mode: 'free' }` in `App.vue`
+
+`sessionConfig` is initialised with a safe free-mode default rather than `null`, avoiding a `null`-check in the template when passing to `PracticeSession`. Since `ModeSelector` always emits a validated config before `PracticeSession` is shown, the default is never actually used.
+
+## Timeout treated as wrong attempt, recorded via `recordTaskAttempt`
+
+A timeout increments `attempts` without incrementing `correct` — identical to a wrong answer. This keeps the data model simple (one path for all non-correct outcomes) and the spec is explicit that "Timeout zählt als Versuch ohne Erfolg".
+
+## `active` flag in `useTaskTimer` guards against post-clearInterval tick
+
+`clearInterval()` prevents future ticks but cannot cancel a callback already queued in the event loop. The `active` boolean is checked at the top of `tick()` so a stale queued callback is a no-op even if it fires after `stop()`. `PracticeSession` also guards with `phase !== 'input'` for belt-and-suspenders safety.

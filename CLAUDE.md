@@ -28,14 +28,18 @@ Alle drei müssen fehlerfrei durchlaufen. Die zwei ESLint-Warnings in `useStorag
 
 ```
 src/
-├── App.vue                        # Screen-Router (profile-selector | home | practice)
+├── App.vue                        # Screen-Router (profile-selector | home | mode-selector | practice)
 ├── main.ts                        # Vue-App mount
 ├── types/
 │   └── index.ts                   # Alle geteilten Interfaces & Typen
 ├── composables/
 │   ├── useStorage.ts              # localStorage load/save (AppData)
 │   ├── useProfiles.ts             # Singleton-State, Profil-CRUD + recordTaskAttempt
-│   └── useTaskGenerator.ts        # Zufalls-Aufgaben-Generator (1×1, kein State)
+│   ├── useTaskGenerator.ts        # Zufalls-Aufgaben-Generator (1×1, kein State)
+│   ├── useTaskTimer.ts            # Countdown-Timer pro Aufgabe (Trainingsmodus)
+│   └── useSessionTimer.ts         # Session-Zeitzähler mit Auto-Pause
+├── utils/
+│   └── time.ts                    # formatMs(ms) → "m:ss" / "h:mm:ss"
 ├── components/
 │   ├── ProfileSelector.vue        # Profilauswahl / -erstellung (Startscreen)
 │   ├── ProfileCard.vue            # Einzelne Profilkarte
@@ -43,10 +47,12 @@ src/
 │   ├── EmojiPicker.vue            # Emoji-Auswahl-Grid (24 Optionen)
 │   ├── ConfirmDialog.vue          # Bestätigungs-Modal (z.B. Löschen)
 │   ├── HomeScreen.vue             # Startbildschirm nach Profilwahl
+│   ├── ModeSelector.vue           # Modus- und Schwierigkeitswahl
+│   ├── CountdownBar.vue           # Horizontaler Timer-Fortschrittsbalken
 │   ├── PracticeSession.vue        # Übungs-Session-Orchestrator (Phasen: input→feedback→summary)
 │   ├── TaskDisplay.vue            # Aufgaben-Anzeige «a × b = ?»
 │   ├── AnswerInput.vue            # Eingabefeld + OK-Button
-│   ├── AnswerFeedback.vue         # ✓/✗-Feedback nach Antwort
+│   ├── AnswerFeedback.vue         # ✓/✗/Timeout-Feedback nach Antwort
 │   └── SessionSummary.vue        # Abschlussbildschirm einer Session
 └── styles/
     └── main.css                   # Globale CSS-Custom-Properties + Reset
@@ -177,7 +183,7 @@ Lazy-initialisiert `profile.tasks` und den `TaskState` beim ersten Aufruf. Muss 
 |-----------|--------|--------|
 | 1 | Profilverwaltung, localStorage, Grundstruktur | ✅ fertig |
 | 2 | Aufgaben-Kernschleife, freie Übungs-Session (×, 1–9) | ✅ fertig |
-| 3 | – | 🔜 offen |
+| 3 | Timer, Schwierigkeitsstufen, Trainingsmodus, ModeSelector | ✅ fertig |
 | 4 | Leitner-System, adaptive Aufgabenauswahl | 🔜 offen |
 | 5 | Timer, Schwierigkeitsstufen | 🔜 offen |
 | 6 | Monster-Design / Visualisierung | 🔜 offen |

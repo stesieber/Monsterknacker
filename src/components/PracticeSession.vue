@@ -1,36 +1,74 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useTaskGenerator } from '../composables/useTaskGenerator';
 import { useProfiles } from '../composables/useProfiles';
+import { useTaskTimer } from '../composables/useTaskTimer';
+import { useSessionTimer } from '../composables/useSessionTimer';
 import type { Task } from '../composables/useTaskGenerator';
+import type { SessionConfig } from '../types/index';
+import { DIFFICULTY_TIMEOUT_MS } from '../types/index';
+import { formatMs } from '../utils/time';
 import TaskDisplay from './TaskDisplay.vue';
 import AnswerInput from './AnswerInput.vue';
 import AnswerFeedback from './AnswerFeedback.vue';
 import SessionSummary from './SessionSummary.vue';
+import CountdownBar from './CountdownBar.vue';
 
+const props = defineProps<{ config: SessionConfig }>();
 const emit = defineEmits<{ exit: [] }>();
 
 const { nextTask } = useTaskGenerator();
-const { recordTaskAttempt } = useProfiles();
+const { recordTaskAttempt, addPracticeTimeMs } = useProfiles();
+const taskTimer = useTaskTimer();
+const sessionTimer = useSessionTimer();
 
 const currentTask = ref<Task | null>(null);
 const taskCount = ref(0);
 const correctCount = ref(0);
 const lastAnswer = ref<number | null>(null);
+const lastWasTimeout = ref(false);
 const phase = ref<'input' | 'feedback' | 'summary'>('input');
 const inputKey = ref(0);
+const sessionDurationMs = ref(0);
+let lastSavedSessionMs = 0;
+
+const sessionTimeDisplay = computed(() => formatMs(sessionTimer.elapsedMs.value));
 
 onMounted(() => {
   currentTask.value = nextTask();
+  if (props.config.mode === 'training') {
+    sessionTimer.start();
+    taskTimer.start(DIFFICULTY_TIMEOUT_MS[props.config.difficulty!], onTimeout);
+  }
 });
+
+function trackPracticeTime() {
+  const current = sessionTimer.elapsedMs.value;
+  const delta = current - lastSavedSessionMs;
+  if (delta > 0) addPracticeTimeMs(delta);
+  lastSavedSessionMs = current;
+}
+
+function onTimeout() {
+  if (!currentTask.value || phase.value !== 'input') return;
+  recordTaskAttempt(currentTask.value.id, false);
+  lastAnswer.value = null;
+  lastWasTimeout.value = true;
+  taskCount.value++;
+  trackPracticeTime();
+  phase.value = 'feedback';
+}
 
 function onSubmit(value: number) {
   if (!currentTask.value || phase.value !== 'input') return;
+  if (props.config.mode === 'training') taskTimer.stop();
   const isCorrect = value === currentTask.value.answer;
   recordTaskAttempt(currentTask.value.id, isCorrect);
   lastAnswer.value = value;
+  lastWasTimeout.value = false;
   taskCount.value++;
   if (isCorrect) correctCount.value++;
+  if (props.config.mode === 'training') trackPracticeTime();
   phase.value = 'feedback';
 }
 
@@ -38,20 +76,41 @@ function onNext() {
   const prevId = currentTask.value?.id;
   currentTask.value = nextTask(prevId);
   inputKey.value++;
+  lastWasTimeout.value = false;
   phase.value = 'input';
+  if (props.config.mode === 'training') {
+    taskTimer.start(DIFFICULTY_TIMEOUT_MS[props.config.difficulty!], onTimeout);
+  }
 }
 
 function endSession() {
+  if (props.config.mode === 'training') {
+    taskTimer.stop();
+    sessionTimer.stop();
+    trackPracticeTime();
+    sessionDurationMs.value = sessionTimer.elapsedMs.value;
+  }
   phase.value = 'summary';
 }
 
 function restart() {
+  if (props.config.mode === 'training') {
+    taskTimer.stop();
+    sessionTimer.stop();
+  }
   currentTask.value = nextTask();
   taskCount.value = 0;
   correctCount.value = 0;
   lastAnswer.value = null;
+  lastWasTimeout.value = false;
+  lastSavedSessionMs = 0;
+  sessionDurationMs.value = 0;
   inputKey.value++;
   phase.value = 'input';
+  if (props.config.mode === 'training') {
+    sessionTimer.start();
+    taskTimer.start(DIFFICULTY_TIMEOUT_MS[props.config.difficulty!], onTimeout);
+  }
 }
 </script>
 
@@ -60,13 +119,27 @@ function restart() {
     v-if="phase === 'summary'"
     :task-count="taskCount"
     :correct-count="correctCount"
+    :session-ms="config.mode === 'training' ? sessionDurationMs : undefined"
     @restart="restart"
     @exit="emit('exit')"
   />
 
   <div v-else class="practice">
+    <CountdownBar
+      v-if="config.mode === 'training'"
+      :remaining-ms="taskTimer.remainingMs.value"
+      :total-ms="taskTimer.totalMs.value"
+      :is-paused="taskTimer.isPaused.value"
+    />
+
     <header class="practice-header">
       <span class="practice-task-nr">Aufgabe Nr. {{ taskCount + 1 }}</span>
+
+      <span v-if="config.mode === 'training'" class="practice-session-time">
+        {{ sessionTimeDisplay }}
+        <span v-if="sessionTimer.isPaused.value" class="pause-icon" title="Pausiert">⏸</span>
+      </span>
+
       <button class="end-btn" type="button" @click="endSession">Beenden</button>
     </header>
 
@@ -80,10 +153,11 @@ function restart() {
       />
 
       <AnswerFeedback
-        v-else-if="phase === 'feedback' && currentTask && lastAnswer !== null"
+        v-else-if="phase === 'feedback' && currentTask && (lastAnswer !== null || lastWasTimeout)"
         :task="currentTask"
-        :user-answer="lastAnswer"
-        :is-correct="lastAnswer === currentTask.answer"
+        :user-answer="lastAnswer ?? 0"
+        :is-correct="!lastWasTimeout && lastAnswer === currentTask.answer"
+        :is-timeout="lastWasTimeout"
         @next="onNext"
       />
     </main>
@@ -101,7 +175,7 @@ function restart() {
 
 .practice-header {
   flex-shrink: 0;
-  height: 64px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -113,6 +187,19 @@ function restart() {
   font-size: 0.95rem;
   font-weight: 600;
   color: var(--color-text-muted);
+}
+
+.practice-session-time {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pause-icon {
+  font-size: 0.8rem;
 }
 
 .end-btn {

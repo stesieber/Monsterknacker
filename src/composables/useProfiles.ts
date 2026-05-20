@@ -1,5 +1,5 @@
 import { computed, reactive, watch } from 'vue';
-import type { AppData, Profile } from '../types/index';
+import type { AppData, Profile, ProfileStats, SessionMode, Difficulty } from '../types/index';
 import { AVAILABLE_EMOJIS } from '../types/index';
 import type { TaskMap } from '../types/index';
 import { loadAppData, saveAppData } from './useStorage';
@@ -84,6 +84,33 @@ export function useProfiles() {
     }
   }
 
+  /**
+   * Addiert Übungszeit zum aktiven Profil (nur Training-Modus).
+   * Initialisiert profile.stats falls noch nicht vorhanden.
+   */
+  function addPracticeTimeMs(deltaMs: number): void {
+    const profile = state.profiles.find((p) => p.id === state.activeProfileId);
+    if (!profile) return;
+    if (!profile.stats) {
+      profile.stats = { totalPracticeMs: 0 } as ProfileStats;
+    }
+    profile.stats.totalPracticeMs += deltaMs;
+  }
+
+  /**
+   * Speichert die zuletzt gewählte Session-Konfiguration im Profil.
+   * Initialisiert profile.settings falls noch nicht vorhanden.
+   */
+  function updateLastSessionConfig(mode: SessionMode, difficulty?: Difficulty): void {
+    const profile = state.profiles.find((p) => p.id === state.activeProfileId);
+    if (!profile) return;
+    if (!profile.settings) {
+      profile.settings = { showVisualization: false };
+    }
+    profile.settings.lastSessionMode = mode;
+    profile.settings.lastSessionDifficulty = difficulty;
+  }
+
   return {
     profiles,
     activeProfile,
@@ -94,5 +121,7 @@ export function useProfiles() {
     deleteProfile,
     clearActiveProfile,
     recordTaskAttempt,
+    addPracticeTimeMs,
+    updateLastSessionConfig,
   };
 }
