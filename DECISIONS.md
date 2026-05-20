@@ -27,3 +27,27 @@ Per spec section 8: even if an active profile exists in localStorage, the app al
 ## `@rushstack/eslint-patch` added as devDependency
 
 Required by the standard `@vue/eslint-config-typescript` setup. Without it, ESLint cannot resolve the extended config in a CJS context with ESM packages.
+
+---
+
+## Iteration 2 decisions
+
+## `type="text"` + `inputmode="numeric"` for AnswerInput
+
+`type="number"` was avoided because it renders browser-native spinners, allows scroll-wheel changes to the value, and on some mobile browsers shows an unwanted decimal separator. Using `type="text"` with `inputmode="numeric"` gives us the numeric keyboard on mobile without those side effects. Non-digit characters are filtered client-side via the `@input` handler.
+
+## `:key="inputKey"` on `AnswerInput` for reset and auto-focus
+
+Rather than exposing an imperative `focus()` / `reset()` method via `defineExpose`, we increment a `inputKey` ref whenever we want a fresh AnswerInput (phase transition back to `'input'`). This forces Vue to unmount and remount the component, which triggers its `onMounted` auto-focus naturally and also resets all local state (raw value). Simpler than a `watch(phase, ...)` with imperative DOM calls.
+
+## `recordTaskAttempt` uses conditional init, not pre-initialised TaskMap
+
+`profile.tasks` starts as `undefined` for profiles created in Iteration 1. `recordTaskAttempt` lazily initialises both `profile.tasks` and the individual `TaskState` on first access. No migration script is needed.
+
+## `SessionSummary` rendered from within `PracticeSession`
+
+The summary is a phase of the session (`phase === 'summary'`), not a separate `Screen` in `App.vue`. This keeps session-local state (taskCount, correctCount) self-contained and avoids threading props up and back down through App.
+
+## `100dvh` for practice and summary layouts
+
+Mobile browsers shrink the viewport when the address bar is visible. `100dvh` uses the dynamic viewport height (CSS level 4), preventing the bottom button from being clipped. Fallback gracefully on browsers without support (the layout still works, just with a potential small clip).

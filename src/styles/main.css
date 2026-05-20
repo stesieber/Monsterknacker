@@ -7,6 +7,11 @@
   --color-text-muted: #6b7280;
   --color-success: #22c55e;
   --color-danger: #ef4444;
+  --color-feedback-correct: #22c55e;
+  --color-feedback-wrong: #ef4444;
+  --color-task-display: #1f2433;
+  --font-size-task: 4rem;
+  --font-size-task-mobile: 3rem;
   --radius: 16px;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
