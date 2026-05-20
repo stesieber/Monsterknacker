@@ -6,6 +6,7 @@ const props = defineProps<{
   task: Task;
   userAnswer: number;
   isCorrect: boolean;
+  isTimeout?: boolean;
 }>();
 const emit = defineEmits<{ next: [] }>();
 
@@ -20,14 +21,20 @@ onMounted(() => {
   <div class="feedback" :class="isCorrect ? 'feedback--correct' : 'feedback--wrong'">
     <div class="feedback-icon" aria-hidden="true">{{ isCorrect ? '✓' : '✗' }}</div>
 
-    <p class="feedback-label">{{ isCorrect ? 'Richtig!' : 'Nicht ganz.' }}</p>
+    <p class="feedback-label">
+      {{ isTimeout ? 'Zeit abgelaufen!' : (isCorrect ? 'Richtig!' : 'Nicht ganz.') }}
+    </p>
 
     <p class="feedback-equation">
       {{ props.task.a }} × {{ props.task.b }} =
       <strong class="feedback-answer">{{ props.task.answer }}</strong>
     </p>
 
-    <p v-if="!isCorrect" class="feedback-user-answer">
+    <p v-if="isTimeout" class="feedback-user-answer">
+      Die Antwort wäre: <strong class="feedback-answer">{{ props.task.a }} × {{ props.task.b }} = {{ props.task.answer }}</strong>
+    </p>
+
+    <p v-else-if="!isCorrect" class="feedback-user-answer">
       Deine Antwort: {{ props.userAnswer }}
     </p>
 
