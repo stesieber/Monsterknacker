@@ -71,7 +71,7 @@ onMounted(() => {
       Deine Antwort: {{ props.userAnswer }}
     </p>
 
-    <Visualization v-if="showViz" :a="task.a" :b="task.b" />
+    <Visualization v-if="showViz && !isCorrect" :a="task.a" :b="task.b" />
 
     <button
       ref="nextBtnRef"
