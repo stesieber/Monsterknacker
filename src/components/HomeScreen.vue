@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useProfiles } from '../composables/useProfiles';
+import { useMonsters } from '../composables/useMonsters';
 import ProfileEditDialog from './ProfileEditDialog.vue';
+import MonsterSvg1 from './MonsterSvg1.vue';
 
-const emit = defineEmits<{ switchProfile: []; startPractice: [] }>();
+const emit = defineEmits<{
+  switchProfile: [];
+  startPractice: [];
+  showMonsters: [];
+  showHeroes: [];
+}>();
 
 const { activeProfile, clearActiveProfile } = useProfiles();
+const { monsterCount, heroCount } = useMonsters();
 const showSettings = ref(false);
 
 function switchProfile() {
@@ -30,6 +38,29 @@ function switchProfile() {
     </header>
 
     <main class="home-main">
+      <!-- Monster & Hero tiles -->
+      <div class="creature-tiles">
+        <button class="creature-tile creature-tile--monster" type="button" @click="emit('showMonsters')">
+          <div class="tile-icon">
+            <MonsterSvg1 tone="monster" />
+          </div>
+          <div class="tile-content">
+            <span class="tile-count">{{ monsterCount }}</span>
+            <span class="tile-label">{{ monsterCount === 0 ? 'Alles besiegt!' : 'Monster' }}</span>
+          </div>
+        </button>
+
+        <button class="creature-tile creature-tile--hero" type="button" @click="emit('showHeroes')">
+          <div class="tile-icon">
+            <MonsterSvg1 tone="gold" />
+          </div>
+          <div class="tile-content">
+            <span class="tile-count">{{ heroCount }}</span>
+            <span class="tile-label">{{ heroCount === 0 ? 'Los geht\'s!' : 'Helden' }}</span>
+          </div>
+        </button>
+      </div>
+
       <button class="practice-btn" type="button" @click="emit('startPractice')">
         Üben starten
       </button>
@@ -60,7 +91,7 @@ function switchProfile() {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .home-greeting {
@@ -122,8 +153,69 @@ function switchProfile() {
 .home-main {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 24px;
   justify-content: center;
+}
+
+.creature-tiles {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  max-width: 360px;
+}
+
+.creature-tile {
+  flex: 1;
+  min-height: 88px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  transition: background 0.15s, transform 0.1s;
+  text-align: left;
+}
+
+.creature-tile:hover {
+  background: #f0f2f8;
+}
+
+.creature-tile:active {
+  transform: scale(0.97);
+}
+
+.tile-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.tile-icon :deep(svg) {
+  width: 100%;
+  height: 100%;
+}
+
+.tile-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tile-count {
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--color-text);
+}
+
+.tile-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
 }
 
 .practice-btn {

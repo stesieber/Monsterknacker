@@ -4,8 +4,7 @@ import { useTaskSelector } from '../composables/useTaskSelector';
 import { useProfiles } from '../composables/useProfiles';
 import { useTaskTimer } from '../composables/useTaskTimer';
 import { useSessionTimer } from '../composables/useSessionTimer';
-import type { Task } from '../types/index';
-import type { SessionConfig } from '../types/index';
+import type { Task, SessionConfig, AttemptResult } from '../types/index';
 import { DIFFICULTY_TIMEOUT_MS } from '../types/index';
 import { formatMs } from '../utils/time';
 import TaskDisplay from './TaskDisplay.vue';
@@ -32,6 +31,7 @@ const phase = ref<'input' | 'feedback' | 'summary'>('input');
 const inputKey = ref(0);
 const sessionDurationMs = ref(0);
 const showCorrectToast = ref(false);
+const attemptResult = ref<AttemptResult | null>(null);
 let lastSavedSessionMs = 0;
 
 const sessionTimeDisplay = computed(() => formatMs(sessionTimer.elapsedMs.value));
@@ -71,8 +71,9 @@ function trackPracticeTime() {
 
 function onTimeout() {
   if (!currentTask.value || phase.value !== 'input') return;
-  recordTaskAttempt(currentTask.value.id, false);
+  const result = recordTaskAttempt(currentTask.value.id, false);
   selector.recordResult(currentTask.value.id, false);
+  attemptResult.value = result;
   lastAnswer.value = null;
   lastWasTimeout.value = true;
   taskCount.value++;
@@ -86,19 +87,21 @@ function onSubmit(value: number) {
   // Explicitly dismiss the soft keyboard before switching to feedback phase.
   (document.activeElement as HTMLElement | null)?.blur();
   const isCorrect = value === currentTask.value.answer;
-  recordTaskAttempt(currentTask.value.id, isCorrect);
+  const result = recordTaskAttempt(currentTask.value.id, isCorrect);
   selector.recordResult(currentTask.value.id, isCorrect);
+  attemptResult.value = result;
   lastAnswer.value = value;
   lastWasTimeout.value = false;
   taskCount.value++;
   if (isCorrect) correctCount.value++;
   if (props.config.mode === 'training') trackPracticeTime();
 
-  if (isCorrect) {
+  if (isCorrect && !result.promotedToHero) {
     showCorrectToast.value = true;
     onNext();
     setTimeout(() => { showCorrectToast.value = false; }, 900);
   } else {
+    // Wrong answer, timeout, or correct with promotion → show feedback
     phase.value = 'feedback';
   }
 }
@@ -107,6 +110,7 @@ function onNext() {
   currentTask.value = selector.next(activeProfile.value!);
   inputKey.value++;
   lastWasTimeout.value = false;
+  attemptResult.value = null;
   phase.value = 'input';
   if (props.config.mode === 'training') {
     taskTimer.start(DIFFICULTY_TIMEOUT_MS[props.config.difficulty!], onTimeout);
@@ -136,6 +140,7 @@ function restart() {
   lastWasTimeout.value = false;
   lastSavedSessionMs = 0;
   sessionDurationMs.value = 0;
+  attemptResult.value = null;
   inputKey.value++;
   phase.value = 'input';
   if (props.config.mode === 'training') {
@@ -194,6 +199,7 @@ function restart() {
           :user-answer="lastAnswer ?? 0"
           :is-correct="!lastWasTimeout && lastAnswer === currentTask.answer"
           :is-timeout="lastWasTimeout"
+          :attempt-result="attemptResult ?? undefined"
           @next="onNext"
         />
       </div>

@@ -6,8 +6,10 @@ import ProfileSelector from './components/ProfileSelector.vue';
 import HomeScreen from './components/HomeScreen.vue';
 import ModeSelector from './components/ModeSelector.vue';
 import PracticeSession from './components/PracticeSession.vue';
+import MonstersScreen from './components/MonstersScreen.vue';
+import HeroesScreen from './components/HeroesScreen.vue';
 
-type Screen = 'profile-selector' | 'home' | 'mode-selector' | 'practice';
+type Screen = 'profile-selector' | 'home' | 'mode-selector' | 'practice' | 'monsters' | 'heroes';
 
 const currentScreen = ref<Screen>('profile-selector');
 const { activeProfile } = useProfiles();
@@ -37,10 +39,20 @@ function goToHome() {
     v-else-if="currentScreen === 'home'"
     @switch-profile="currentScreen = 'profile-selector'"
     @start-practice="goToModeSelector"
+    @show-monsters="currentScreen = 'monsters'"
+    @show-heroes="currentScreen = 'heroes'"
   />
   <ModeSelector
     v-else-if="currentScreen === 'mode-selector'"
     @start="startPractice"
+    @back="currentScreen = 'home'"
+  />
+  <MonstersScreen
+    v-else-if="currentScreen === 'monsters'"
+    @back="currentScreen = 'home'"
+  />
+  <HeroesScreen
+    v-else-if="currentScreen === 'heroes'"
     @back="currentScreen = 'home'"
   />
   <PracticeSession

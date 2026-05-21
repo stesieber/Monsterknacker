@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import type { Task } from '../types/index';
+import type { Task, AttemptResult } from '../types/index';
 import { useProfiles } from '../composables/useProfiles';
 import Visualization from './Visualization.vue';
+import DefeatAnimation from './DefeatAnimation.vue';
 
 const props = defineProps<{
   task: Task;
   userAnswer: number;
   isCorrect: boolean;
   isTimeout?: boolean;
+  attemptResult?: AttemptResult;
 }>();
 const emit = defineEmits<{ next: [] }>();
 
@@ -16,16 +18,39 @@ const { activeProfile } = useProfiles();
 
 const showViz = computed(() => activeProfile.value?.settings?.showVisualization !== false);
 
+const monsterType = computed(
+  () => activeProfile.value?.tasks?.[props.task.id]?.monsterType ?? 0
+);
+
+const defeatDone = ref(false);
+const showDefeat = computed(
+  () => (props.attemptResult?.promotedToHero ?? false) && !defeatDone.value
+);
+
+function onDefeatDone() {
+  defeatDone.value = true;
+  nextBtnRef.value?.focus({ preventScroll: true });
+}
+
 const nextBtnRef = ref<HTMLButtonElement | null>(null);
 
 onMounted(() => {
-  // Delay focus by one macrotask so the keyup event that triggered submit
-  // fires before the button receives focus (preventing Enter from clicking it).
-  setTimeout(() => nextBtnRef.value?.focus({ preventScroll: true }), 0);
+  if (!props.attemptResult?.promotedToHero) {
+    setTimeout(() => nextBtnRef.value?.focus({ preventScroll: true }), 0);
+  }
 });
 </script>
 
 <template>
+  <DefeatAnimation
+    v-if="showDefeat && attemptResult"
+    :type="monsterType"
+    :new-kind="(attemptResult.newKind as 'silver' | 'gold')"
+    :a="task.a"
+    :b="task.b"
+    @done="onDefeatDone"
+  />
+
   <div class="feedback" :class="isCorrect ? 'feedback--correct' : 'feedback--wrong'">
     <div class="feedback-icon" aria-hidden="true">{{ isCorrect ? '✓' : '✗' }}</div>
 

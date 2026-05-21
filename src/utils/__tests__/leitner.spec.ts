@@ -7,7 +7,7 @@ function makeProfileWithBoxes(boxes: Record<string, number>): Profile {
   const tasks: Record<string, TaskState> = {};
   for (const id of SMALL_TABLE_TASK_IDS) {
     const box = (boxes[id] ?? 1) as 1 | 2 | 3 | 4 | 5;
-    tasks[id] = { attempts: 0, correct: 0, box };
+    tasks[id] = { attempts: 0, correct: 0, box, monsterType: 0 };
   }
   return { id: 'test', name: 'Test', emoji: '🐶', createdAt: 0, tasks };
 }
@@ -231,14 +231,14 @@ describe('ensureAllSmallTableTasks', () => {
     const result = ensureAllSmallTableTasks({});
     expect(Object.keys(result)).toHaveLength(81);
     for (const id of SMALL_TABLE_TASK_IDS) {
-      expect(result[id]).toEqual({ attempts: 0, correct: 0, box: 1 });
+      expect(result[id]).toEqual({ attempts: 0, correct: 0, box: 1, monsterType: 0 });
     }
   });
 
   it('preserves existing task state', () => {
-    const existing: Record<string, TaskState> = { '1x1': { attempts: 5, correct: 3, box: 3 } };
+    const existing: Record<string, TaskState> = { '1x1': { attempts: 5, correct: 3, box: 3, monsterType: 1 } };
     const result = ensureAllSmallTableTasks(existing);
-    expect(result['1x1']).toEqual({ attempts: 5, correct: 3, box: 3 });
+    expect(result['1x1']).toEqual({ attempts: 5, correct: 3, box: 3, monsterType: 1 });
   });
 
   it('fills missing box on existing task', () => {
@@ -250,15 +250,15 @@ describe('ensureAllSmallTableTasks', () => {
   });
 
   it('does not mutate input object', () => {
-    const original: Record<string, TaskState> = { '1x1': { attempts: 5, correct: 3, box: 3 } };
+    const original: Record<string, TaskState> = { '1x1': { attempts: 5, correct: 3, box: 3, monsterType: 2 } };
     ensureAllSmallTableTasks(original);
-    expect(original).toEqual({ '1x1': { attempts: 5, correct: 3, box: 3 } });
+    expect(original).toEqual({ '1x1': { attempts: 5, correct: 3, box: 3, monsterType: 2 } });
   });
 
   it('returns all 81 tasks regardless of input size', () => {
     const partial: Record<string, TaskState> = {
-      '1x1': { attempts: 1, correct: 1, box: 2 },
-      '9x9': { attempts: 2, correct: 0, box: 1 },
+      '1x1': { attempts: 1, correct: 1, box: 2, monsterType: 0 },
+      '9x9': { attempts: 2, correct: 0, box: 1, monsterType: 1 },
     };
     const result = ensureAllSmallTableTasks(partial);
     expect(Object.keys(result)).toHaveLength(81);
