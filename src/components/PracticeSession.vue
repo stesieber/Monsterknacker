@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useTaskGenerator } from '../composables/useTaskGenerator';
+import { useTaskSelector } from '../composables/useTaskSelector';
 import { useProfiles } from '../composables/useProfiles';
 import { useTaskTimer } from '../composables/useTaskTimer';
 import { useSessionTimer } from '../composables/useSessionTimer';
-import type { Task } from '../composables/useTaskGenerator';
+import type { Task } from '../types/index';
 import type { SessionConfig } from '../types/index';
 import { DIFFICULTY_TIMEOUT_MS } from '../types/index';
 import { formatMs } from '../utils/time';
@@ -17,8 +17,8 @@ import CountdownBar from './CountdownBar.vue';
 const props = defineProps<{ config: SessionConfig }>();
 const emit = defineEmits<{ exit: [] }>();
 
-const { nextTask } = useTaskGenerator();
-const { recordTaskAttempt, addPracticeTimeMs } = useProfiles();
+const selector = useTaskSelector();
+const { activeProfile, recordTaskAttempt, addPracticeTimeMs } = useProfiles();
 const taskTimer = useTaskTimer();
 const sessionTimer = useSessionTimer();
 
@@ -35,7 +35,8 @@ let lastSavedSessionMs = 0;
 const sessionTimeDisplay = computed(() => formatMs(sessionTimer.elapsedMs.value));
 
 onMounted(() => {
-  currentTask.value = nextTask();
+  selector.reset();
+  currentTask.value = selector.next(activeProfile.value!);
   if (props.config.mode === 'training') {
     sessionTimer.start();
     taskTimer.start(DIFFICULTY_TIMEOUT_MS[props.config.difficulty!], onTimeout);
@@ -52,6 +53,7 @@ function trackPracticeTime() {
 function onTimeout() {
   if (!currentTask.value || phase.value !== 'input') return;
   recordTaskAttempt(currentTask.value.id, false);
+  selector.recordResult(currentTask.value.id, false);
   lastAnswer.value = null;
   lastWasTimeout.value = true;
   taskCount.value++;
@@ -64,6 +66,7 @@ function onSubmit(value: number) {
   if (props.config.mode === 'training') taskTimer.stop();
   const isCorrect = value === currentTask.value.answer;
   recordTaskAttempt(currentTask.value.id, isCorrect);
+  selector.recordResult(currentTask.value.id, isCorrect);
   lastAnswer.value = value;
   lastWasTimeout.value = false;
   taskCount.value++;
@@ -73,8 +76,7 @@ function onSubmit(value: number) {
 }
 
 function onNext() {
-  const prevId = currentTask.value?.id;
-  currentTask.value = nextTask(prevId);
+  currentTask.value = selector.next(activeProfile.value!);
   inputKey.value++;
   lastWasTimeout.value = false;
   phase.value = 'input';
@@ -98,7 +100,8 @@ function restart() {
     taskTimer.stop();
     sessionTimer.stop();
   }
-  currentTask.value = nextTask();
+  selector.reset();
+  currentTask.value = selector.next(activeProfile.value!);
   taskCount.value = 0;
   correctCount.value = 0;
   lastAnswer.value = null;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Task } from '../composables/useTaskGenerator';
+import type { Task } from '../types/index';
 
 defineProps<{ task: Task }>();
 </script>

@@ -1,13 +1,25 @@
 import { computed, reactive, watch } from 'vue';
-import type { AppData, Profile, ProfileStats, SessionMode, Difficulty } from '../types/index';
-import { AVAILABLE_EMOJIS } from '../types/index';
+import type { AppData, Profile, ProfileStats, SessionMode, Difficulty, LeitnerBox } from '../types/index';
+import { AVAILABLE_EMOJIS, SMALL_TABLE_TASK_IDS } from '../types/index';
 import type { TaskMap } from '../types/index';
 import { loadAppData, saveAppData } from './useStorage';
+import { nextBox } from '../utils/leitner';
 
 // Module-level singleton state shared across all callers
 const state = reactive<AppData>(loadAppData());
 
 watch(state, () => saveAppData(state), { deep: true });
+
+function initializeProfileTasks(profileId: string): void {
+  const profile = state.profiles.find((p) => p.id === profileId);
+  if (!profile) return;
+  if (!profile.tasks) profile.tasks = {} as TaskMap;
+  for (const id of SMALL_TABLE_TASK_IDS) {
+    if (!profile.tasks[id]) {
+      profile.tasks[id] = { attempts: 0, correct: 0, box: 1 };
+    }
+  }
+}
 
 export function useProfiles() {
   const profiles = computed(() => state.profiles);
@@ -33,6 +45,7 @@ export function useProfiles() {
       createdAt: Date.now(),
     };
     state.profiles.push(profile);
+    initializeProfileTasks(profile.id);
     return profile;
   }
 
@@ -79,15 +92,17 @@ export function useProfiles() {
       existing.attempts++;
       if (isCorrect) existing.correct++;
       existing.lastAttemptAt = Date.now();
+      existing.box = nextBox(existing.box, isCorrect);
     } else {
-      profile.tasks[taskId] = { attempts: 1, correct: isCorrect ? 1 : 0, lastAttemptAt: Date.now() };
+      profile.tasks[taskId] = {
+        attempts: 1,
+        correct: isCorrect ? 1 : 0,
+        lastAttemptAt: Date.now(),
+        box: nextBox(1 as LeitnerBox, isCorrect),
+      };
     }
   }
 
-  /**
-   * Addiert Übungszeit zum aktiven Profil (nur Training-Modus).
-   * Initialisiert profile.stats falls noch nicht vorhanden.
-   */
   function addPracticeTimeMs(deltaMs: number): void {
     const profile = state.profiles.find((p) => p.id === state.activeProfileId);
     if (!profile) return;
@@ -97,10 +112,6 @@ export function useProfiles() {
     profile.stats.totalPracticeMs += deltaMs;
   }
 
-  /**
-   * Speichert die zuletzt gewählte Session-Konfiguration im Profil.
-   * Initialisiert profile.settings falls noch nicht vorhanden.
-   */
   function updateLastSessionConfig(mode: SessionMode, difficulty?: Difficulty): void {
     const profile = state.profiles.find((p) => p.id === state.activeProfileId);
     if (!profile) return;
