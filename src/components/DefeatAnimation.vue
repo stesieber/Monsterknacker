@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import type { MonsterType } from '../types/index';
 import MonsterIcon from './MonsterIcon.vue';
 
@@ -59,6 +59,8 @@ function onKey(e: KeyboardEvent) {
   }
 }
 
+const startKind = computed(() => props.newKind === 'gold' ? 'silver' : 'monster');
+
 const label = `${props.a} × ${props.b} ist jetzt ein ${props.newKind === 'gold' ? 'Goldheld! ✨' : 'Silberheld!'}`;
 </script>
 
@@ -75,7 +77,7 @@ const label = `${props.a} × ${props.b} ist jetzt ein ${props.newKind === 'gold'
           'creature--fadeout': phase === 'transform' || phase === 'hero',
         }"
       >
-        <MonsterIcon :type="type" tone="monster" :size="96" :decorative="true" />
+        <MonsterIcon :type="type" :tone="startKind" :size="96" :decorative="true" />
       </div>
 
       <!-- Hero (fades in) -->
