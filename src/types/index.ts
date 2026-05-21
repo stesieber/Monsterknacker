@@ -101,6 +101,16 @@ export interface Profile {
   stats?: ProfileStats;
 }
 
+/** A colored block in the rectangle area model. */
+export interface VisualizationBlock {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  colorSlot: 'A' | 'B' | 'C' | 'D';
+  label: number;
+}
+
 export const AVAILABLE_EMOJIS = [
   '🐶', '🐱', '🐰', '🦊', '🐼', '🦁', '🐸', '🐵',
   '🦄', '🐲', '🦖', '🐙', '🦋', '🐝', '🦔', '🐢',

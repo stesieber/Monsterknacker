@@ -1,5 +1,5 @@
 import { computed, reactive, watch } from 'vue';
-import type { AppData, Profile, ProfileStats, SessionMode, Difficulty, LeitnerBox } from '../types/index';
+import type { AppData, Profile, ProfileSettings, ProfileStats, SessionMode, Difficulty, LeitnerBox } from '../types/index';
 import { AVAILABLE_EMOJIS, SMALL_TABLE_TASK_IDS } from '../types/index';
 import type { TaskMap } from '../types/index';
 import { loadAppData, saveAppData } from './useStorage';
@@ -43,6 +43,7 @@ export function useProfiles() {
       name: trimmed,
       emoji,
       createdAt: Date.now(),
+      settings: { showVisualization: true },
     };
     state.profiles.push(profile);
     initializeProfileTasks(profile.id);
@@ -116,10 +117,19 @@ export function useProfiles() {
     const profile = state.profiles.find((p) => p.id === state.activeProfileId);
     if (!profile) return;
     if (!profile.settings) {
-      profile.settings = { showVisualization: false };
+      profile.settings = { showVisualization: true };
     }
     profile.settings.lastSessionMode = mode;
     profile.settings.lastSessionDifficulty = difficulty;
+  }
+
+  function updateSettings(id: string, partial: Partial<ProfileSettings>): void {
+    const profile = state.profiles.find((p) => p.id === id);
+    if (!profile) return;
+    if (!profile.settings) {
+      profile.settings = { showVisualization: true };
+    }
+    Object.assign(profile.settings, partial);
   }
 
   return {
@@ -134,5 +144,6 @@ export function useProfiles() {
     recordTaskAttempt,
     addPracticeTimeMs,
     updateLastSessionConfig,
+    updateSettings,
   };
 }

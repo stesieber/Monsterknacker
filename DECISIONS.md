@@ -107,3 +107,27 @@ Vitest was added as the unit test runner (`npm test` → `vitest run`). The old 
 ## `recordTaskAttempt` before `selector.next()` ordering
 
 In both `onSubmit` and `onTimeout`, `recordTaskAttempt` (which updates the Leitner box in the profile) is called before `selector.next()` (which reads the profile boxes for weighted selection). This ensures the selector always works with the most up-to-date box values, as required by the spec.
+
+---
+
+## Iteration 5 decisions
+
+## SVG instead of Canvas for the rectangle area model
+
+SVG is used for the rectangle visualization rather than `<canvas>`. SVG scales crisply at all DPIs without extra effort, is a11y-friendly (real `<text>` elements, `role="img"`, `aria-label`), is smaller in the bundle (no pixel data), and requires no animation loop. Canvas would be needed only if we had complex per-frame animation — we don't.
+
+## 5-block partition hardcoded for 1–9 (YAGNI for Iter. 7)
+
+The `partition()` function in `useVisualization.ts` applies exactly one 5-block per axis (if the factor ≥ 5) and one remainder block. Factors 1–9 always produce at most one 5-block and one remainder per axis, so this is sufficient for V5. Iteration 7 will extend factors to 1–20 (requiring multiple 5-blocks or a 10-block variant). Generalizing now would add complexity without benefit.
+
+## `showVisualization === undefined` treated as `true`
+
+Profiles created before Iteration 5 have no `settings.showVisualization` field. The spec requires these to behave as if it were `true` (opt-out model). The check `profile.settings?.showVisualization !== false` achieves this without any migration: `undefined !== false` is `true`. Only explicit `false` hides the visualization.
+
+## `updateSettings` as a dedicated composable function
+
+Rather than mutating `profile.settings` directly in components, a new `updateSettings(id, partial)` function in `useProfiles` handles initialization of the `settings` object (if absent) and merges the partial update. This keeps mutation logic in the composable layer, consistent with the existing architecture.
+
+## `ToggleSwitch.vue` as a reusable component
+
+A small `ToggleSwitch` component was extracted even though only one toggle is needed in V5. The spec calls for additional settings toggles in Iteration 8, and a 28-line component costs less than the effort of extracting it later. It uses `role="switch"` with `aria-checked` for proper semantics.
