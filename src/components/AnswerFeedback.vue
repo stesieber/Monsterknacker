@@ -19,7 +19,7 @@ const showViz = computed(() => activeProfile.value?.settings?.showVisualization 
 const nextBtnRef = ref<HTMLButtonElement | null>(null);
 
 onMounted(() => {
-  nextBtnRef.value?.focus();
+  nextBtnRef.value?.focus({ preventScroll: true });
 });
 </script>
 

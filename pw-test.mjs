@@ -347,6 +347,85 @@ async function testTimeout(browser) {
   }
 }
 
+// ─── Test 6: Firefox Mobile keyboard simulation — header bleibt sichtbar ──────
+//
+// Reproduziert das Firefox-Mobile-Verhalten: wenn das Input-Feld fokussiert
+// wird und die Tastatur öffnet, versucht Firefox die Seite zu scrollen.
+// Ohne preventScroll:true wandert der Header aus dem Sichtbereich.
+//
+// Simulation:
+// 1. Vollgrösse-Viewport (Tastatur noch nicht offen)
+// 2. Input focussieren (wie Auto-Focus beim Mount)
+// 3. window.scrollBy(0, 300) — was Firefox intern tut wenn die Tastatur öffnet
+// 4. Header muss trotzdem bei y < 10 bleiben (position:fixed;inset:0)
+// 5. window.scrollY muss 0 sein (Seite ist nicht scrollbar)
+//
+// Dann: Tastatur-Viewport (375×390) + gleiche Checks
+async function testFirefoxKeyboardScroll(browser) {
+  console.log('\n🦊 Test 6: Firefox-Mobile-Simulation — Tastatur-Scroll verhindert Header-Verschwinden');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Fokus setzen (wie onMounted in AnswerInput)
+    await page.locator('.answer-field').focus();
+    await page.waitForTimeout(50);
+
+    // Simuliere: Browser scrollt beim Tastatur-Öffnen (Firefox Mobile Verhalten)
+    await page.evaluate(() => window.scrollBy(0, 300));
+    await page.waitForTimeout(100);
+
+    const scrollY = await page.evaluate(() => window.scrollY);
+    assert(scrollY === 0, `Seite ist nicht scrollbar (scrollY=${scrollY}px, erwartet 0)`);
+
+    const topBox = await page.locator('.practice-top').boundingBox();
+    assert(
+      topBox !== null && topBox.y < 10,
+      `Header bleibt nach Scroll-Versuch sichtbar (y=${Math.round(topBox?.y ?? 99)}px)`
+    );
+
+    // Jetzt zusätzlich Viewport auf Tastatur-Grösse reduzieren
+    await page.setViewportSize({ width: 375, height: 390 });
+    await page.evaluate(() => window.scrollBy(0, 300));
+    await page.waitForTimeout(100);
+
+    const scrollYSmall = await page.evaluate(() => window.scrollY);
+    assert(scrollYSmall === 0, `Seite nicht scrollbar nach Viewport-Verkleinerung (scrollY=${scrollYSmall}px)`);
+
+    const topBoxSmall = await page.locator('.practice-top').boundingBox();
+    assert(
+      topBoxSmall !== null && topBoxSmall.y < 10,
+      `Header sichtbar nach Tastatur-Viewport (y=${Math.round(topBoxSmall?.y ?? 99)}px)`
+    );
+
+    // Header-Inhalt noch sichtbar?
+    assert(await page.locator('.practice-task-nr').isVisible(), 'Aufgaben-Nr. sichtbar');
+    assert(await page.locator('.end-btn').isVisible(), '"Beenden"-Button sichtbar');
+
+    // Mehrere Aufgaben durchklicken → kein kumulativer Scroll-Drift
+    for (let i = 0; i < 3; i++) {
+      await page.locator('.answer-field').fill('42');
+      await page.locator('.ok-btn').click();
+      await page.locator('.next-btn').waitFor({ timeout: 3000 });
+      await page.locator('.next-btn').click();
+      await page.locator('.answer-field').waitFor({ timeout: 3000 });
+
+      await page.evaluate(() => window.scrollBy(0, 300));
+      await page.waitForTimeout(50);
+
+      const drift = await page.evaluate(() => window.scrollY);
+      const topAfter = await page.locator('.practice-top').boundingBox();
+      assert(drift === 0, `Kein Scroll-Drift nach Aufgabe ${i + 1} (scrollY=${drift}px)`);
+      assert(
+        topAfter !== null && topAfter.y < 10,
+        `Header nach Aufgabe ${i + 1} noch oben (y=${Math.round(topAfter?.y ?? 99)}px)`
+      );
+    }
+  } finally {
+    await page.close();
+  }
+}
+
 // ─── Run ──────────────────────────────────────────────────────────────────────
 const browser = await chromium.launch();
 try {
@@ -357,6 +436,7 @@ try {
   await testHeaderTrainingMode(browser);
   await testTrainingMode(browser);
   await testTimeout(browser);
+  await testFirefoxKeyboardScroll(browser);
 } catch (e) {
   console.error('\nUnhandled error:', e.message);
   failures++;
