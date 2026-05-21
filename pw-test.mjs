@@ -1,4 +1,7 @@
-import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
+// Use local install (CI) or fall back to the globally installed version.
+const { chromium } = await import('playwright').catch(() =>
+  import('/opt/node22/lib/node_modules/playwright/index.mjs'),
+);
 
 const PASS = '\x1b[32m✓\x1b[0m';
 const FAIL = '\x1b[31m✗\x1b[0m';
@@ -151,7 +154,104 @@ async function testModeSelector(browser) {
   }
 }
 
-// ─── Test 4: Training mode — CountdownBar + session timer ────────────────────
+// ─── Test 4a: Header visible — free mode ─────────────────────────────────────
+async function testHeaderFreeMode(browser) {
+  console.log('\n🔖 Test 4a: Practice header — free mode');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    const top = page.locator('.practice-top');
+    assert(await top.isVisible(), '.practice-top wrapper is visible');
+
+    const topBox = await top.boundingBox();
+    if (topBox) {
+      assert(topBox.y >= 0 && topBox.y < 10, `practice-top near top of viewport (y=${Math.round(topBox.y)}px)`);
+    }
+
+    const taskNr = page.locator('.practice-task-nr');
+    assert(await taskNr.isVisible(), '.practice-task-nr is visible');
+    const taskText = await taskNr.textContent();
+    assert(taskText?.includes('Aufgabe Nr.'), `task-nr text correct: "${taskText?.trim()}"`);
+
+    assert(await page.locator('.practice-session-time').count() === 0, 'no session timer in free mode');
+    assert(await page.locator('.end-btn').isVisible(), '"Beenden" button visible');
+
+    const bg = await top.evaluate((el) => window.getComputedStyle(el).backgroundColor);
+    assert(bg === 'rgb(255, 255, 255)', `practice-top has white background (got: ${bg})`);
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 4b: Header visible — training mode, also with keyboard-open ─────────
+async function testHeaderTrainingMode(browser) {
+  console.log('\n🔖 Test 4b: Practice header — training mode + keyboard-open simulation');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await page.goto('http://localhost:5173');
+    if (await page.locator('.profile-card').count() === 0) {
+      await page.locator('.add-card').click();
+      await page.locator('.field-input').fill('TestKind');
+      await page.locator('.emoji-btn').first().click();
+      await page.locator('.btn-primary', { hasText: 'Speichern' }).click();
+    }
+    await page.locator('.profile-card').first().click();
+    await page.locator('button', { hasText: 'Üben starten' }).click();
+    await page.locator('.mode-card', { hasText: 'Training' }).click();
+    await page.locator('.difficulty-card', { hasText: 'Leicht' }).click();
+    await page.locator('.start-btn').click();
+    await page.locator('.answer-field').waitFor({ timeout: 5000 });
+
+    const top = page.locator('.practice-top');
+    assert(await top.isVisible(), '.practice-top wrapper visible in training mode');
+
+    const topBox = await top.boundingBox();
+    if (topBox) {
+      assert(topBox.y >= 0 && topBox.y < 10,
+        `practice-top at top of viewport (y=${Math.round(topBox.y)}px)`);
+      assert(topBox.height >= 56,
+        `practice-top height includes header (${Math.round(topBox.height)}px ≥ 56px)`);
+    }
+
+    // Task number
+    const taskNr = page.locator('.practice-task-nr');
+    assert(await taskNr.isVisible(), '.practice-task-nr visible in training mode');
+    assert((await taskNr.textContent())?.trim() === 'Aufgabe Nr. 1', 'first task number correct');
+
+    // Session timer
+    const sessionTime = page.locator('.practice-session-time');
+    assert(await sessionTime.isVisible(), 'session timer visible in training mode');
+    assert(/\d:\d{2}/.test((await sessionTime.textContent()) ?? ''), 'timer has m:ss format');
+
+    // Main content starts below the header
+    const headerBox = await page.locator('.practice-header').boundingBox();
+    const mainBox   = await page.locator('.practice-main').boundingBox();
+    if (headerBox && mainBox) {
+      assert(mainBox.y >= headerBox.y + headerBox.height - 2,
+        `main (y=${Math.round(mainBox.y)}) starts below header bottom (${Math.round(headerBox.y + headerBox.height)}px)`);
+    }
+
+    // Background is white (distinguishable from the grey page)
+    const bg = await top.evaluate((el) => window.getComputedStyle(el).backgroundColor);
+    assert(bg === 'rgb(255, 255, 255)', `practice-top has white background (got: ${bg})`);
+
+    // Simulate keyboard opening — shrink viewport to ~390px height
+    await page.setViewportSize({ width: 375, height: 390 });
+    await page.waitForTimeout(150);
+    const topSmall = await top.boundingBox();
+    assert(
+      topSmall !== null && (topSmall.y ?? 99) < 10,
+      `practice-top still at top after keyboard-open (y=${Math.round(topSmall?.y ?? 99)}px)`,
+    );
+    assert(await taskNr.isVisible(), 'task-nr visible after keyboard-open viewport shrink');
+    assert(await sessionTime.isVisible(), 'session timer visible after keyboard-open viewport shrink');
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 5: Training mode — CountdownBar + session timer ────────────────────
 async function testTrainingMode(browser) {
   console.log('\n⏱️  Test 4: Training mode — CountdownBar + session timer');
   const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
@@ -244,6 +344,8 @@ try {
   await testNormalMobile(browser);
   await testKeyboardOpen(browser);
   await testModeSelector(browser);
+  await testHeaderFreeMode(browser);
+  await testHeaderTrainingMode(browser);
   await testTrainingMode(browser);
   await testTimeout(browser);
 } catch (e) {

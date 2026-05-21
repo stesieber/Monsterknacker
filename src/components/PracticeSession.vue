@@ -125,23 +125,26 @@ function restart() {
   />
 
   <div v-else class="practice">
-    <CountdownBar
-      v-if="config.mode === 'training'"
-      :remaining-ms="taskTimer.remainingMs.value"
-      :total-ms="taskTimer.totalMs.value"
-      :is-paused="taskTimer.isPaused.value"
-    />
+    <!-- sticky wrapper keeps CountdownBar + header always visible -->
+    <div class="practice-top">
+      <CountdownBar
+        v-if="config.mode === 'training'"
+        :remaining-ms="taskTimer.remainingMs.value"
+        :total-ms="taskTimer.totalMs.value"
+        :is-paused="taskTimer.isPaused.value"
+      />
 
-    <header class="practice-header">
-      <span class="practice-task-nr">Aufgabe Nr. {{ taskCount + 1 }}</span>
+      <header class="practice-header">
+        <span class="practice-task-nr">Aufgabe Nr. {{ taskCount + 1 }}</span>
 
-      <span v-if="config.mode === 'training'" class="practice-session-time">
-        {{ sessionTimeDisplay }}
-        <span v-if="sessionTimer.isPaused.value" class="pause-icon" title="Pausiert">⏸</span>
-      </span>
+        <span v-if="config.mode === 'training'" class="practice-session-time">
+          {{ sessionTimeDisplay }}
+          <span v-if="sessionTimer.isPaused.value" class="pause-icon" title="Pausiert">⏸</span>
+        </span>
 
-      <button class="end-btn" type="button" @click="endSession">Beenden</button>
-    </header>
+        <button class="end-btn" type="button" @click="endSession">Beenden</button>
+      </header>
+    </div>
 
     <main class="practice-main">
       <TaskDisplay v-if="currentTask" :task="currentTask" />
@@ -173,26 +176,33 @@ function restart() {
   margin: 0 auto;
 }
 
-.practice-header {
+.practice-top {
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-surface);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.practice-header {
   height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .practice-task-nr {
   font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
+  font-weight: 700;
+  color: var(--color-text);
 }
 
 .practice-session-time {
   font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
+  font-weight: 700;
+  color: var(--color-text);
   display: flex;
   align-items: center;
   gap: 4px;
