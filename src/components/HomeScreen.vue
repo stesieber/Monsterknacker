@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useProfiles } from '../composables/useProfiles';
+import ProfileEditDialog from './ProfileEditDialog.vue';
 
 const emit = defineEmits<{ switchProfile: []; startPractice: [] }>();
 
 const { activeProfile, clearActiveProfile } = useProfiles();
+const showSettings = ref(false);
 
 function switchProfile() {
   clearActiveProfile();
@@ -18,7 +21,12 @@ function switchProfile() {
         <span class="home-emoji" aria-hidden="true">{{ activeProfile?.emoji }}</span>
         <h1 class="home-title">Hallo, {{ activeProfile?.name }}!</h1>
       </div>
-      <button class="switch-btn" type="button" @click="switchProfile">Profil wechseln</button>
+      <div class="home-actions">
+        <button class="icon-btn" type="button" aria-label="Einstellungen" @click="showSettings = true">
+          ⚙️
+        </button>
+        <button class="switch-btn" type="button" @click="switchProfile">Profil wechseln</button>
+      </div>
     </header>
 
     <main class="home-main">
@@ -27,6 +35,13 @@ function switchProfile() {
       </button>
     </main>
   </div>
+
+  <ProfileEditDialog
+    v-if="showSettings && activeProfile"
+    mode="edit"
+    :profile="activeProfile"
+    @close="showSettings = false"
+  />
 </template>
 
 <style scoped>
@@ -63,6 +78,29 @@ function switchProfile() {
   font-size: clamp(1.4rem, 4vw, 2rem);
   font-weight: 800;
   color: var(--color-text);
+}
+
+.home-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.icon-btn:hover {
+  background: #e8eaf0;
 }
 
 .switch-btn {
