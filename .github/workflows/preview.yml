@@ -1,0 +1,52 @@
+name: Branch Preview → GitHub Pages
+
+on:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-preview-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check & build
+        run: npm run build
+
+      - name: Derive URL-safe branch slug
+        id: slug
+        run: |
+          SLUG=$(echo "${GITHUB_REF_NAME}" | sed 's|/|-|g' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+          echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
+          echo "url=https://stesieber.github.io/Monsterknacker/preview/${SLUG}/" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy preview to gh-pages/preview/<slug>
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          destination_dir: preview/${{ steps.slug.outputs.slug }}
+          keep_files: true
+          commit_message: "deploy: ${{ github.ref_name }} → /preview/${{ steps.slug.outputs.slug }}"
+
+      - name: Print preview URL
+        run: |
+          echo ""
+          echo "✅ Preview URL: ${{ steps.slug.outputs.url }}"
+          echo ""

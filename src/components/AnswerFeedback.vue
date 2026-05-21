@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import type { Task } from '../types/index';
+import { useProfiles } from '../composables/useProfiles';
+import Visualization from './Visualization.vue';
 
 const props = defineProps<{
   task: Task;
@@ -9,6 +11,10 @@ const props = defineProps<{
   isTimeout?: boolean;
 }>();
 const emit = defineEmits<{ next: [] }>();
+
+const { activeProfile } = useProfiles();
+
+const showViz = computed(() => activeProfile.value?.settings?.showVisualization !== false);
 
 const nextBtnRef = ref<HTMLButtonElement | null>(null);
 
@@ -37,6 +43,8 @@ onMounted(() => {
     <p v-else-if="!isCorrect" class="feedback-user-answer">
       Deine Antwort: {{ props.userAnswer }}
     </p>
+
+    <Visualization v-if="showViz" :a="task.a" :b="task.b" />
 
     <button
       ref="nextBtnRef"
@@ -112,5 +120,16 @@ onMounted(() => {
 
 .next-btn:hover {
   background: var(--color-primary-dark);
+}
+
+@media (max-width: 400px) {
+  .feedback-equation {
+    font-size: 1rem;
+  }
+
+  .feedback {
+    gap: 6px;
+    padding: 16px 14px;
+  }
 }
 </style>

@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import type { Profile } from '../types/index';
 import { AVAILABLE_EMOJIS } from '../types/index';
 import EmojiPicker from './EmojiPicker.vue';
+import ToggleSwitch from './ToggleSwitch.vue';
 import ConfirmDialog from './ConfirmDialog.vue';
 import { useProfiles } from '../composables/useProfiles';
 
@@ -15,10 +16,11 @@ const emit = defineEmits<{
   close: [];
 }>();
 
-const { createProfile, renameProfile, updateEmoji, deleteProfile } = useProfiles();
+const { createProfile, renameProfile, updateEmoji, deleteProfile, updateSettings } = useProfiles();
 
 const name = ref(props.profile?.name ?? '');
 const emoji = ref(props.profile?.emoji ?? AVAILABLE_EMOJIS[0]);
+const showVisualization = ref(props.profile?.settings?.showVisualization !== false);
 const nameError = ref('');
 const showConfirmDelete = ref(false);
 
@@ -34,10 +36,12 @@ function save() {
   if (nameError.value) return;
 
   if (props.mode === 'create') {
-    createProfile(name.value, emoji.value);
+    const created = createProfile(name.value, emoji.value);
+    updateSettings(created.id, { showVisualization: showVisualization.value });
   } else if (props.profile) {
     renameProfile(props.profile.id, name.value);
     updateEmoji(props.profile.id, emoji.value);
+    updateSettings(props.profile.id, { showVisualization: showVisualization.value });
   }
   emit('close');
 }
@@ -88,6 +92,14 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
       <div class="field">
         <label class="field-label">Emoji</label>
         <EmojiPicker v-model="emoji" />
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-text">
+          <span class="setting-label" id="viz-toggle-label">Rechenhilfe anzeigen</span>
+          <span class="setting-hint">Zeigt nach jeder Antwort eine farbige Erklärung als Rechteck.</span>
+        </div>
+        <ToggleSwitch v-model="showVisualization" aria-labelledby="viz-toggle-label" />
       </div>
 
       <div class="dialog-actions">
@@ -184,6 +196,35 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
   color: var(--color-danger);
   font-size: 0.85rem;
   margin-top: 4px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid #e2e6f0;
+  border-bottom: 1px solid #e2e6f0;
+  margin-bottom: 20px;
+}
+
+.setting-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setting-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-text);
+}
+
+.setting-hint {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
 }
 
 .dialog-actions {

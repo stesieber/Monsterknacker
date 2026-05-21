@@ -17,6 +17,13 @@
   --countdown-height: 8px;
   --radius: 16px;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --viz-color-a: #93c5fd;
+  --viz-color-b: #86efac;
+  --viz-color-c: #fde68a;
+  --viz-color-d: #fca5a5;
+  --viz-stroke: #ffffff;
+  --viz-text: #1f2433;
+  --viz-axis: #6b7280;
 }
 
 *,
