@@ -43,7 +43,8 @@ onMounted(() => {
   );
   timeouts.push(setTimeout(() => done(), 1400));
 
-  document.addEventListener('keydown', onKey);
+  // Delay listener to avoid capturing the Enter keydown that triggered submission
+  timeouts.push(setTimeout(() => document.addEventListener('keydown', onKey), 300));
 });
 
 onUnmounted(() => {
