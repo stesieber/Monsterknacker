@@ -1,8 +1,9 @@
 import type { AppData } from '../types/index';
 import { SMALL_TABLE_TASK_IDS } from '../types/index';
+import { randomMonsterType } from '../utils/creature';
 
 const STORAGE_KEY = 'monsterknacker';
-const CURRENT_VERSION = 3;
+const CURRENT_VERSION = 4;
 
 const DEFAULT_APP_DATA: AppData = {
   version: CURRENT_VERSION,
@@ -40,10 +41,25 @@ function migrateV2toV3(data: any): any {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function migrateV3toV4(data: any): any {
+  for (const profile of data.profiles ?? []) {
+    if (!profile.tasks) continue;
+    for (const taskId of Object.keys(profile.tasks)) {
+      const t = profile.tasks[taskId];
+      if (t.monsterType === undefined) {
+        t.monsterType = randomMonsterType();
+      }
+    }
+  }
+  return data;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function migrate(data: any, fromVersion: number): AppData {
   let migrated = data;
   if (fromVersion < 2) migrated = migrateV1toV2(migrated);
   if (fromVersion < 3) migrated = migrateV2toV3(migrated);
+  if (fromVersion < 4) migrated = migrateV3toV4(migrated);
   migrated.version = CURRENT_VERSION;
   return migrated as AppData;
 }

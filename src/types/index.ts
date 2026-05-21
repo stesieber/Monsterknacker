@@ -1,12 +1,29 @@
 /** Leitner-Fach 1–5. 1 = noch nicht beherrscht, 5 = beherrscht. */
 export type LeitnerBox = 1 | 2 | 3 | 4 | 5;
 
+/** Index des Monster-Designs (0, 1 oder 2). Permanent pro Aufgabe. */
+export type MonsterType = 0 | 1 | 2;
+
+/** Was eine Aufgabe gerade visuell ist. Abgeleitet aus dem Leitner-Fach. */
+export type CreatureKind = 'monster' | 'silver' | 'gold';
+
+/** Anzahl verfügbarer Monster-Designs. */
+export const MONSTER_TYPE_COUNT = 3;
+
 export interface TaskState {
   attempts: number;
   correct: number;
   lastAttemptAt?: number;
   box: LeitnerBox;
-  monsterType?: number;
+  monsterType: MonsterType;
+}
+
+/** Rückgabe von recordTaskAttempt: enthält Info über Box-Übergang. */
+export interface AttemptResult {
+  previousKind: CreatureKind;
+  newKind: CreatureKind;
+  /** True wenn newKind != previousKind und newKind nicht 'monster'. */
+  promotedToHero: boolean;
 }
 
 export type TaskMap = Record<string, TaskState>;

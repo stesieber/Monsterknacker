@@ -131,3 +131,35 @@ Rather than mutating `profile.settings` directly in components, a new `updateSet
 ## `ToggleSwitch.vue` as a reusable component
 
 A small `ToggleSwitch` component was extracted even though only one toggle is needed in V5. The spec calls for additional settings toggles in Iteration 8, and a 28-line component costs less than the effort of extracting it later. It uses `role="switch"` with `aria-checked` for proper semantics.
+
+---
+
+## Iteration 6 decisions
+
+## `CreatureKind` derived from box, not stored
+
+`CreatureKind` ('monster' | 'silver' | 'gold') is computed via `kindForBox(box)` at read time rather than stored as a separate field on `TaskState`. This keeps `box` as the single source of truth: no sync conflict is possible, no migration is needed when the kind changes, and computed values stay up to date automatically via Vue's reactivity.
+
+## Storage version bumped to 4 (not 3)
+
+The spec describes a v2→v3 migration for `monsterType`. However, Iterations 4–5 already introduced a v2→v3 migration for the `showVisualization` bug fix, leaving the current app at version 3. The monsterType migration therefore becomes v3→v4 to avoid overwriting the existing migration chain.
+
+## No "demotion" animation
+
+When a hero falls back to box 1 (wrong answer in box 4 or 5), no animation is shown. Showing punishment feedback contradicts the app's pedagogy ("Lernpartner, keine Feinde") and interrupts the learning flow. The child discovers the change passively if they browse the Monsters collection. This is intentional.
+
+## `monsterType` assigned randomly, not semantically
+
+Monster designs could theoretically correlate with difficulty or operand values, but there is no pedagogical benefit to doing so. Random permanent assignment is simpler, produces natural visual variety in the grid, and avoids the need for a lookup table. The assignment is stable: once set (at profile creation or migration), it never changes.
+
+## Promotion animation pauses auto-advance for correct answers
+
+Normally a correct answer immediately advances to the next task (toast + onNext). When the answer triggers a promotion (previousKind → silver/gold), the feedback phase is shown instead so `DefeatAnimation` is visible. Without this, the animation would be shown on the new task's input screen, which is confusing. The cost: one extra tap ("Weiter") for promotions — acceptable given they're infrequent.
+
+## `DefeatAnimation` uses fixed-duration timeouts, not CSS `animationend`
+
+The animation has four phases triggered by `setTimeout` rather than listening to `animationend` events. This avoids brittle multi-event coordination across several animated elements and handles `prefers-reduced-motion` cleanly (animations are suppressed but timeouts still fire).
+
+## `ensureAllSmallTableTasks` adds `monsterType: 0` to synthesized tasks
+
+The function creates fallback TaskState objects used only for Leitner weight calculation (not persisted). Adding `monsterType: 0` satisfies the now-required field without a semantic meaning — the value is never read in selection logic.

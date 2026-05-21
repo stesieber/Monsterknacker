@@ -20,7 +20,7 @@ export function ensureAllSmallTableTasks(tasks: Record<string, TaskState>): Reco
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const existing = result[id] as any;
     if (!existing) {
-      result[id] = { attempts: 0, correct: 0, box: 1 };
+      result[id] = { attempts: 0, correct: 0, box: 1, monsterType: 0 };
     } else if (!existing.box) {
       result[id] = { ...existing, box: 1 } as TaskState;
     }

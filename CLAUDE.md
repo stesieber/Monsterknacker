@@ -201,3 +201,23 @@ Lazy-initialisiert `profile.tasks` und den `TaskState` beim ersten Aufruf. Muss 
 ## Entscheidungen & Begründungen
 
 Architektonische Entscheidungen mit Begründung stehen in `DECISIONS.md`. Neue Entscheidungen dort ergänzen, wenn etwas vom offensichtlichen Weg abweicht.
+
+---
+
+## Nach jedem Commit / Push
+
+Nach jedem abgeschlossenen Push auf einen Feature-Branch **immer** die Preview-URL ausgeben:
+
+```
+https://stesieber.github.io/Monsterknacker/preview/<slug>/
+```
+
+Slug-Bildung (entspricht dem GitHub-Action-Skript):
+1. Branch-Name: Schrägstriche `/` → Bindestriche `-`
+2. Alles zu Kleinbuchstaben
+3. Nicht-`[a-z0-9-]`-Zeichen → `-`
+
+Beispiel: Branch `claude/new-session-hs52X` → Slug `claude-new-session-hs52x`
+→ `https://stesieber.github.io/Monsterknacker/preview/claude-new-session-hs52x/`
+
+Das Preview-Deployment wird durch den Push automatisch via `.github/workflows/preview.yml` ausgelöst und ist nach ca. 1–2 Minuten verfügbar.

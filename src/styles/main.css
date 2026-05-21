@@ -24,6 +24,41 @@
   --viz-stroke: #ffffff;
   --viz-text: #1f2433;
   --viz-axis: #6b7280;
+  --color-silver: #c0c5cf;
+  --color-silver-shine: #e7ebf2;
+  --color-gold: #f5c542;
+  --color-gold-shine: #fff3a8;
+  --color-monster-1: #ff6b6b;
+  --color-monster-2: #51cf66;
+  --color-monster-3: #748ffc;
+}
+
+@keyframes sparkle {
+  0%   { opacity: 0; transform: scale(0) translate(0, 0); }
+  30%  { opacity: 1; transform: scale(1.2) translate(var(--sx, 0px), var(--sy, 0px)); }
+  70%  { opacity: 0.8; }
+  100% { opacity: 0; transform: scale(0.3) translate(calc(var(--sx, 0px) * 2), calc(var(--sy, 0px) * 2)); }
+}
+
+@keyframes monster-wobble {
+  0%   { transform: scale(1) rotate(0deg); }
+  20%  { transform: scale(1.12) rotate(-6deg); }
+  40%  { transform: scale(1.12) rotate(6deg); }
+  60%  { transform: scale(1.12) rotate(-3deg); }
+  80%  { transform: scale(1.1) rotate(3deg); }
+  100% { transform: scale(1.1) rotate(0deg); }
+}
+
+@keyframes hero-bounce {
+  0%   { transform: scale(1.1); }
+  40%  { transform: scale(1.25); }
+  70%  { transform: scale(1.18); }
+  100% { transform: scale(1.2); }
+}
+
+@keyframes hero-reveal {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
 }
 
 *,

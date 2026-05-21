@@ -1,9 +1,19 @@
 import { computed, reactive, watch } from 'vue';
-import type { AppData, Profile, ProfileSettings, ProfileStats, SessionMode, Difficulty, LeitnerBox } from '../types/index';
+import type {
+  AppData,
+  Profile,
+  ProfileSettings,
+  ProfileStats,
+  SessionMode,
+  Difficulty,
+  LeitnerBox,
+  AttemptResult,
+} from '../types/index';
 import { AVAILABLE_EMOJIS, SMALL_TABLE_TASK_IDS } from '../types/index';
 import type { TaskMap } from '../types/index';
 import { loadAppData, saveAppData } from './useStorage';
 import { nextBox } from '../utils/leitner';
+import { randomMonsterType, kindForBox } from '../utils/creature';
 
 // Module-level singleton state shared across all callers
 const state = reactive<AppData>(loadAppData());
@@ -16,7 +26,7 @@ function initializeProfileTasks(profileId: string): void {
   if (!profile.tasks) profile.tasks = {} as TaskMap;
   for (const id of SMALL_TABLE_TASK_IDS) {
     if (!profile.tasks[id]) {
-      profile.tasks[id] = { attempts: 0, correct: 0, box: 1 };
+      profile.tasks[id] = { attempts: 0, correct: 0, box: 1, monsterType: randomMonsterType() };
     }
   }
 }
@@ -81,26 +91,34 @@ export function useProfiles() {
     state.activeProfileId = null;
   }
 
-  function recordTaskAttempt(taskId: string, isCorrect: boolean): void {
+  function recordTaskAttempt(taskId: string, isCorrect: boolean): AttemptResult {
     const profile = state.profiles.find((p) => p.id === state.activeProfileId);
     if (!profile) {
       console.warn('[Monsterknacker] recordTaskAttempt: no active profile');
-      return;
+      return { previousKind: 'monster', newKind: 'monster', promotedToHero: false };
     }
     if (!profile.tasks) profile.tasks = {} as TaskMap;
     const existing = profile.tasks[taskId];
     if (existing) {
+      const previousKind = kindForBox(existing.box);
       existing.attempts++;
       if (isCorrect) existing.correct++;
       existing.lastAttemptAt = Date.now();
       existing.box = nextBox(existing.box, isCorrect);
+      const newKind = kindForBox(existing.box);
+      const promotedToHero = newKind !== previousKind && newKind !== 'monster';
+      return { previousKind, newKind, promotedToHero };
     } else {
+      const newBox = nextBox(1 as LeitnerBox, isCorrect);
       profile.tasks[taskId] = {
         attempts: 1,
         correct: isCorrect ? 1 : 0,
         lastAttemptAt: Date.now(),
-        box: nextBox(1 as LeitnerBox, isCorrect),
+        box: newBox,
+        monsterType: randomMonsterType(),
       };
+      const newKind = kindForBox(newBox);
+      return { previousKind: 'monster', newKind, promotedToHero: false };
     }
   }
 
