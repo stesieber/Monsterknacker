@@ -125,7 +125,6 @@ function restart() {
   />
 
   <div v-else class="practice">
-    <!-- sticky wrapper keeps CountdownBar + header always visible -->
     <div class="practice-top">
       <CountdownBar
         v-if="config.mode === 'training'"
@@ -145,6 +144,8 @@ function restart() {
         <button class="end-btn" type="button" @click="endSession">Beenden</button>
       </header>
     </div>
+
+    <div class="practice-top-spacer" :class="{ 'has-countdown': config.mode === 'training' }" />
 
     <main class="practice-main">
       <TaskDisplay v-if="currentTask" :task="currentTask" />
@@ -177,12 +178,22 @@ function restart() {
 }
 
 .practice-top {
-  flex-shrink: 0;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 10;
   background: var(--color-surface);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.practice-top-spacer {
+  flex-shrink: 0;
+  height: 56px;
+}
+
+.practice-top-spacer.has-countdown {
+  height: 64px; /* 56px header + 8px countdown bar */
 }
 
 .practice-header {

@@ -236,6 +236,15 @@ async function testHeaderTrainingMode(browser) {
     const bg = await top.evaluate((el) => window.getComputedStyle(el).backgroundColor);
     assert(bg === 'rgb(255, 255, 255)', `practice-top has white background (got: ${bg})`);
 
+    // Confirm header stays fixed when page is programmatically scrolled
+    await page.evaluate(() => window.scrollTo(0, 200));
+    await page.waitForTimeout(100);
+    const topAfterScroll = await top.boundingBox();
+    assert(
+      topAfterScroll !== null && (topAfterScroll.y ?? 99) < 10,
+      `practice-top stays at top after page scroll (y=${Math.round(topAfterScroll?.y ?? 99)}px)`,
+    );
+
     // Simulate keyboard opening — shrink viewport to ~390px height
     await page.setViewportSize({ width: 375, height: 390 });
     await page.waitForTimeout(150);
