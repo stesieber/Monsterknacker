@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useTaskSelector } from '../composables/useTaskSelector';
 import { useProfiles } from '../composables/useProfiles';
 import { useTaskTimer } from '../composables/useTaskTimer';
@@ -22,6 +22,7 @@ const { activeProfile, recordTaskAttempt, addPracticeTimeMs } = useProfiles();
 const taskTimer = useTaskTimer();
 const sessionTimer = useSessionTimer();
 
+const practiceEl = ref<HTMLDivElement | null>(null);
 const currentTask = ref<Task | null>(null);
 const taskCount = ref(0);
 const correctCount = ref(0);
@@ -30,9 +31,20 @@ const lastWasTimeout = ref(false);
 const phase = ref<'input' | 'feedback' | 'summary'>('input');
 const inputKey = ref(0);
 const sessionDurationMs = ref(0);
+const showCorrectToast = ref(false);
 let lastSavedSessionMs = 0;
 
 const sessionTimeDisplay = computed(() => formatMs(sessionTimer.elapsedMs.value));
+
+// Firefox Mobile offsets the visual viewport when the soft keyboard opens,
+// causing position:fixed elements to drift off-screen. We compensate by
+// syncing the container's top/height to the visual viewport in real time.
+function syncVisualViewport() {
+  if (!practiceEl.value || !window.visualViewport) return;
+  const { offsetTop, height } = window.visualViewport;
+  practiceEl.value.style.top = `${offsetTop}px`;
+  practiceEl.value.style.height = `${height}px`;
+}
 
 onMounted(() => {
   selector.reset();
@@ -41,6 +53,13 @@ onMounted(() => {
     sessionTimer.start();
     taskTimer.start(DIFFICULTY_TIMEOUT_MS[props.config.difficulty!], onTimeout);
   }
+  window.visualViewport?.addEventListener('resize', syncVisualViewport);
+  window.visualViewport?.addEventListener('scroll', syncVisualViewport);
+});
+
+onUnmounted(() => {
+  window.visualViewport?.removeEventListener('resize', syncVisualViewport);
+  window.visualViewport?.removeEventListener('scroll', syncVisualViewport);
 });
 
 function trackPracticeTime() {
@@ -64,6 +83,8 @@ function onTimeout() {
 function onSubmit(value: number) {
   if (!currentTask.value || phase.value !== 'input') return;
   if (props.config.mode === 'training') taskTimer.stop();
+  // Explicitly dismiss the soft keyboard before switching to feedback phase.
+  (document.activeElement as HTMLElement | null)?.blur();
   const isCorrect = value === currentTask.value.answer;
   recordTaskAttempt(currentTask.value.id, isCorrect);
   selector.recordResult(currentTask.value.id, isCorrect);
@@ -72,7 +93,14 @@ function onSubmit(value: number) {
   taskCount.value++;
   if (isCorrect) correctCount.value++;
   if (props.config.mode === 'training') trackPracticeTime();
-  phase.value = 'feedback';
+
+  if (isCorrect) {
+    showCorrectToast.value = true;
+    onNext();
+    setTimeout(() => { showCorrectToast.value = false; }, 900);
+  } else {
+    phase.value = 'feedback';
+  }
 }
 
 function onNext() {
@@ -127,7 +155,9 @@ function restart() {
     @exit="emit('exit')"
   />
 
-  <div v-else class="practice">
+  <div v-else ref="practiceEl" class="practice">
+    <div v-if="showCorrectToast" class="correct-toast" aria-hidden="true">👍</div>
+
     <div class="practice-top">
       <CountdownBar
         v-if="config.mode === 'training'"
@@ -149,22 +179,24 @@ function restart() {
     </div>
 
     <main class="practice-main">
-      <TaskDisplay v-if="currentTask" :task="currentTask" />
+      <div class="practice-content" :class="{ 'practice-content--feedback': phase === 'feedback' }">
+        <TaskDisplay v-if="currentTask" :task="currentTask" />
 
-      <AnswerInput
-        v-if="phase === 'input'"
-        :key="inputKey"
-        @submit="onSubmit"
-      />
+        <AnswerInput
+          v-if="phase === 'input'"
+          :key="inputKey"
+          @submit="onSubmit"
+        />
 
-      <AnswerFeedback
-        v-else-if="phase === 'feedback' && currentTask && (lastAnswer !== null || lastWasTimeout)"
-        :task="currentTask"
-        :user-answer="lastAnswer ?? 0"
-        :is-correct="!lastWasTimeout && lastAnswer === currentTask.answer"
-        :is-timeout="lastWasTimeout"
-        @next="onNext"
-      />
+        <AnswerFeedback
+          v-else-if="phase === 'feedback' && currentTask && (lastAnswer !== null || lastWasTimeout)"
+          :task="currentTask"
+          :user-answer="lastAnswer ?? 0"
+          :is-correct="!lastWasTimeout && lastAnswer === currentTask.answer"
+          :is-timeout="lastWasTimeout"
+          @next="onNext"
+        />
+      </div>
     </main>
   </div>
 </template>
@@ -238,11 +270,45 @@ function restart() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  width: 100%;
+}
+
+.practice-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: clamp(20px, 5vh, 40px);
   padding: clamp(16px, 4vh, 32px) 16px;
   width: 100%;
-  max-width: 700px;
-  margin: 0 auto;
+  max-width: 360px;
+  /* margin:auto centers when content fits; collapses to 0 when overflowing
+     so overflow starts from the top (correctly scrollable). */
+  margin: auto;
+}
+
+/* During feedback, anchor content to the top so it doesn't jump as the
+   keyboard closes and margin:auto recalculates with the growing viewport. */
+.practice-content--feedback {
+  margin-top: 0;
+  margin-bottom: auto;
+}
+
+.correct-toast {
+  position: absolute;
+  top: 72px;
+  right: 16px;
+  font-size: 2.8rem;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 50;
+  animation: toast-pop 900ms ease-out forwards;
+}
+
+@keyframes toast-pop {
+  0%   { opacity: 0; transform: scale(0.3); }
+  25%  { opacity: 1; transform: scale(1.25); }
+  40%  { opacity: 1; transform: scale(1); }
+  75%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.9); }
 }
 </style>

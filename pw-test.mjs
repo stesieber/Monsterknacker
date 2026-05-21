@@ -347,6 +347,338 @@ async function testTimeout(browser) {
   }
 }
 
+// ─── Test 6: Firefox Mobile keyboard simulation — header bleibt sichtbar ──────
+//
+// Reproduziert das Firefox-Mobile-Verhalten: wenn das Input-Feld fokussiert
+// wird und die Tastatur öffnet, versucht Firefox die Seite zu scrollen.
+// Ohne preventScroll:true wandert der Header aus dem Sichtbereich.
+//
+// Simulation:
+// 1. Vollgrösse-Viewport (Tastatur noch nicht offen)
+// 2. Input focussieren (wie Auto-Focus beim Mount)
+// 3. window.scrollBy(0, 300) — was Firefox intern tut wenn die Tastatur öffnet
+// 4. Header muss trotzdem bei y < 10 bleiben (position:fixed;inset:0)
+// 5. window.scrollY muss 0 sein (Seite ist nicht scrollbar)
+//
+// Dann: Tastatur-Viewport (375×390) + gleiche Checks
+async function testFirefoxKeyboardScroll(browser) {
+  console.log('\n🦊 Test 6: Firefox-Mobile-Simulation — Tastatur-Scroll verhindert Header-Verschwinden');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Fokus setzen (wie onMounted in AnswerInput)
+    await page.locator('.answer-field').focus();
+    await page.waitForTimeout(50);
+
+    // Simuliere: Browser scrollt beim Tastatur-Öffnen (Firefox Mobile Verhalten)
+    await page.evaluate(() => window.scrollBy(0, 300));
+    await page.waitForTimeout(100);
+
+    const scrollY = await page.evaluate(() => window.scrollY);
+    assert(scrollY === 0, `Seite ist nicht scrollbar (scrollY=${scrollY}px, erwartet 0)`);
+
+    const topBox = await page.locator('.practice-top').boundingBox();
+    assert(
+      topBox !== null && topBox.y < 10,
+      `Header bleibt nach Scroll-Versuch sichtbar (y=${Math.round(topBox?.y ?? 99)}px)`
+    );
+
+    // Jetzt zusätzlich Viewport auf Tastatur-Grösse reduzieren
+    await page.setViewportSize({ width: 375, height: 390 });
+    await page.evaluate(() => window.scrollBy(0, 300));
+    await page.waitForTimeout(100);
+
+    const scrollYSmall = await page.evaluate(() => window.scrollY);
+    assert(scrollYSmall === 0, `Seite nicht scrollbar nach Viewport-Verkleinerung (scrollY=${scrollYSmall}px)`);
+
+    const topBoxSmall = await page.locator('.practice-top').boundingBox();
+    assert(
+      topBoxSmall !== null && topBoxSmall.y < 10,
+      `Header sichtbar nach Tastatur-Viewport (y=${Math.round(topBoxSmall?.y ?? 99)}px)`
+    );
+
+    // Header-Inhalt noch sichtbar?
+    assert(await page.locator('.practice-task-nr').isVisible(), 'Aufgaben-Nr. sichtbar');
+    assert(await page.locator('.end-btn').isVisible(), '"Beenden"-Button sichtbar');
+
+    // Prüfe visualViewport-Kompensation: wenn offsetTop > 0, muss practice.top angepasst sein
+    const vvCompensation = await page.evaluate(() => {
+      const el = document.querySelector('.practice');
+      if (!el || !window.visualViewport) return null;
+      return {
+        elTop: parseFloat(window.getComputedStyle(el).top || '0'),
+        vvOffsetTop: window.visualViewport.offsetTop,
+      };
+    });
+    if (vvCompensation) {
+      assert(
+        Math.abs(vvCompensation.elTop - vvCompensation.vvOffsetTop) < 2,
+        `visualViewport-Offset kompensiert (practice.top=${vvCompensation.elTop}px, vv.offsetTop=${vvCompensation.vvOffsetTop}px)`
+      );
+    }
+
+    // Mehrere Aufgaben durchklicken → kein kumulativer Scroll-Drift
+    for (let i = 0; i < 3; i++) {
+      await page.locator('.answer-field').fill('42');
+      await page.locator('.ok-btn').click();
+      await page.locator('.next-btn').waitFor({ timeout: 3000 });
+      await page.locator('.next-btn').click();
+      await page.locator('.answer-field').waitFor({ timeout: 3000 });
+
+      await page.evaluate(() => window.scrollBy(0, 300));
+      await page.waitForTimeout(50);
+
+      const drift = await page.evaluate(() => window.scrollY);
+      const topAfter = await page.locator('.practice-top').boundingBox();
+      assert(drift === 0, `Kein Scroll-Drift nach Aufgabe ${i + 1} (scrollY=${drift}px)`);
+      assert(
+        topAfter !== null && topAfter.y < 10,
+        `Header nach Aufgabe ${i + 1} noch oben (y=${Math.round(topAfter?.y ?? 99)}px)`
+      );
+    }
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 7: Falscher Antworte → Fehler-Feedback vollständig sichtbar ─────────
+async function testWrongAnswerFeedback(browser) {
+  console.log('\n❌ Test 7: Falsche Antwort — vollständiges Fehler-Feedback sichtbar');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Immer falsche Antwort: 99 ist nie korrekt für Faktoren 1–9
+    await page.locator('.answer-field').fill('99');
+    await page.locator('.ok-btn').click();
+
+    // Feedback-Phase abwarten
+    const feedback = page.locator('.feedback');
+    await feedback.waitFor({ timeout: 4000 });
+
+    // ✗-Icon sichtbar
+    const icon = page.locator('.feedback-icon');
+    assert(await icon.isVisible(), '✗-Icon sichtbar');
+    const iconText = await icon.textContent();
+    assert(iconText?.includes('✗'), `✗-Icon zeigt ✗ (got: "${iconText}")`);
+
+    // "Nicht ganz." Label sichtbar
+    const label = page.locator('.feedback-label');
+    assert(await label.isVisible(), '"Nicht ganz."-Label sichtbar');
+    const labelText = await label.textContent();
+    assert(labelText?.includes('Nicht ganz'), `Label sagt "Nicht ganz." (got: "${labelText}")`);
+
+    // Gleichung sichtbar
+    const eq = page.locator('.feedback-equation');
+    assert(await eq.isVisible(), 'Gleichung sichtbar');
+
+    // "Deine Antwort: 99" sichtbar
+    const userAns = page.locator('.feedback-user-answer');
+    assert(await userAns.isVisible(), '"Deine Antwort"-Zeile sichtbar');
+    const userAnsText = await userAns.textContent();
+    assert(userAnsText?.includes('99'), `"Deine Antwort" enthält 99 (got: "${userAnsText}")`);
+
+    // ✗-Icon ist nicht vertikal abgeschnitten — boundingBox.y muss innerhalb des viewports sein
+    const iconBox = await icon.boundingBox();
+    assert(iconBox !== null && iconBox.y >= 0, `✗-Icon nicht über Viewport-Rand (y=${Math.round(iconBox?.y ?? -1)}px)`);
+
+    // "Weiter"-Button sichtbar (ohne Scrollen)
+    const weiter = page.locator('.next-btn');
+    assert(await weiter.isVisible(), '"Weiter"-Button sichtbar');
+
+    // Kein richtiger-Antwort-Marker bei falscher Antwort
+    const feedbackClass = await feedback.getAttribute('class');
+    assert(feedbackClass?.includes('feedback--wrong'), 'Feedback hat Klasse feedback--wrong');
+    assert(!feedbackClass?.includes('feedback--correct'), 'Feedback hat NICHT Klasse feedback--correct');
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 8: Richtige Antwort — Toast erscheint, kein Feedback-Dialog ────────
+async function testCorrectAnswerFeedback(browser) {
+  console.log('\n✅ Test 8: Richtige Antwort — 👍-Toast erscheint, kein Feedback-Dialog');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Richtige Antwort aus DOM lesen
+    const taskText = await page.locator('.task-display').textContent() ?? '';
+    const match = taskText.match(/(\d+)\s*×\s*(\d+)/);
+    const answer = match ? parseInt(match[1]) * parseInt(match[2]) : 1;
+
+    await page.locator('.answer-field').fill(String(answer));
+    await page.locator('.ok-btn').click();
+
+    // Kein Feedback-Dialog bei richtiger Antwort
+    await page.waitForTimeout(100);
+    assert(await page.locator('.feedback').count() === 0, 'Kein Feedback-Dialog bei richtiger Antwort');
+
+    // Toast erscheint oben rechts
+    const toast = page.locator('.correct-toast');
+    await toast.waitFor({ timeout: 2000 });
+    assert(await toast.isVisible(), '👍-Toast erscheint');
+
+    // Toast ist oben rechts positioniert (position:absolute relativ zu .practice)
+    const practiceBox = await page.locator('.practice').boundingBox();
+    const toastBox = await toast.boundingBox();
+    if (toastBox && practiceBox) {
+      assert(toastBox.y >= practiceBox.y, `Toast nicht oberhalb von .practice (toast.y=${Math.round(toastBox.y)}, practice.y=${Math.round(practiceBox.y)})`);
+      assert(toastBox.y < practiceBox.y + 200, `Toast nahe am oberen Rand (y=${Math.round(toastBox.y)}px)`);
+      assert(toastBox.x > 200, `Toast rechts (x=${Math.round(toastBox.x)}px bei vw=375)`);
+    }
+
+    // Nächste Aufgabe ist bereits sichtbar hinter dem Toast
+    assert(await page.locator('.answer-field').isVisible(), 'Nächste Aufgabe direkt sichtbar');
+
+    // Toast verschwindet nach ~900ms
+    await page.waitForTimeout(1000);
+    assert(await toast.count() === 0, 'Toast nach Animation verschwunden');
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 10: Enter-Taste — Feedback bleibt sichtbar (kein Auto-Skip) ────────
+async function testEnterKeyFeedback(browser) {
+  console.log('\n⌨️  Test 10: Enter-Taste mit falscher Antwort — Feedback bleibt sichtbar');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Falsche Antwort (99 ist für 1–9×1–9 nie korrekt), Enter statt OK-Button
+    await page.locator('.answer-field').fill('99');
+    await page.locator('.answer-field').press('Enter');
+
+    // Feedback-Phase muss erscheinen
+    const feedback = page.locator('.feedback');
+    await feedback.waitFor({ timeout: 4000 });
+    assert(await feedback.isVisible(), 'Feedback erscheint nach Enter');
+
+    // 400ms warten — ohne Fix wäre Feedback durch Auto-Click auf "Weiter" schon weg
+    await page.waitForTimeout(400);
+    assert(await feedback.isVisible(), 'Feedback bleibt nach 400ms sichtbar (kein Auto-Skip via keyup)');
+
+    // "Nicht ganz." muss angezeigt sein (nicht weitergesprungen)
+    const labelText = await page.locator('.feedback-label').textContent();
+    assert(labelText?.includes('Nicht ganz'), `Feedback zeigt "Nicht ganz." (got: "${labelText}")`);
+
+    // Eingabefeld darf nicht mehr im DOM sein (wir sind in Feedback-Phase)
+    assert(await page.locator('.answer-field').count() === 0, 'Eingabefeld weg (Feedback-Phase aktiv)');
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 9: Visualisierung — erscheint im Feedback ──────────────────────────
+async function testVisualization(browser) {
+  console.log('\n🟦 Test 9: Visualisierung erscheint nach Antwort');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Antwort einreichen (egal ob richtig oder falsch)
+    await page.locator('.answer-field').fill('99');
+    await page.locator('.ok-btn').click();
+    await page.locator('.feedback').waitFor({ timeout: 4000 });
+
+    // Visualisierung vorhanden
+    const viz = page.locator('.viz-container');
+    assert(await viz.count() > 0, 'Visualisierung (.viz-container) im DOM vorhanden');
+    assert(await viz.isVisible(), 'Visualisierung sichtbar');
+
+    // SVG mit viewBox gerendert
+    const svg = page.locator('.viz-container svg');
+    assert(await svg.count() > 0, 'SVG-Element vorhanden');
+    const vb = await svg.getAttribute('viewBox');
+    assert(vb !== null && vb.length > 0, `SVG hat viewBox-Attribut: "${vb}"`);
+
+    // Mindestens ein Rect (farbiger Block) vorhanden
+    const rects = page.locator('.viz-container svg rect');
+    const rectCount = await rects.count();
+    assert(rectCount >= 1 && rectCount <= 4, `${rectCount} Rechteck(e) im SVG (erwartet 1–4)`);
+
+    // Visualisierung nicht vertikal abgeschnitten
+    const vizBox = await viz.boundingBox();
+    assert(vizBox !== null && vizBox.y >= 0, `Visualisierung nicht über Viewport-Rand (y=${Math.round(vizBox?.y ?? -1)}px)`);
+
+    // Auch bei Tastatur-Viewport (390px) noch sichtbar (scrollbar)
+    await page.setViewportSize({ width: 375, height: 390 });
+    await page.waitForTimeout(100);
+    const vizSmall = page.locator('.viz-container');
+    assert(await vizSmall.count() > 0, 'Visualisierung bei kleinem Viewport im DOM');
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 11: Visual-Viewport-Simulation — Toast und Feedback bleiben sichtbar
+//
+// Simuliert das Firefox-Mobile-Verhalten: syncVisualViewport setzt
+// practiceEl.style.top = offsetTop (z.B. 200px), wenn die Tastatur öffnet.
+// position:fixed-Elemente driften dann aus dem sichtbaren Bereich.
+// position:absolute-Elemente (relativ zu .practice) bleiben korrekt.
+//
+// Bug den dies reproduziert:
+//   Toast war position:fixed → bei practice.top=200px lag der Toast bei
+//   layout-y=72, der Visual Viewport beginnt aber bei y=200 → unsichtbar.
+async function testVisualViewportOffset(browser) {
+  console.log('\n📐 Test 11: Visual-Viewport-Simulation — Toast/Feedback bei practice.top=200px');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Simuliere syncVisualViewport mit offsetTop=200 (Tastatur offen)
+    await page.evaluate(() => {
+      const el = document.querySelector('.practice');
+      if (el) { el.style.top = '200px'; el.style.height = '612px'; }
+    });
+
+    // ── Correct answer: check toast stays within .practice ──
+    const taskText = await page.locator('.task-display').textContent() ?? '';
+    const match = taskText.match(/(\d+)\s*×\s*(\d+)/);
+    const answer = match ? parseInt(match[1]) * parseInt(match[2]) : 1;
+    await page.locator('.answer-field').fill(String(answer));
+    await page.locator('.ok-btn').click();
+
+    const toast = page.locator('.correct-toast');
+    await toast.waitFor({ timeout: 2000 });
+
+    const practiceBox = await page.locator('.practice').boundingBox();
+    const toastBox = await toast.boundingBox();
+    assert(
+      toastBox !== null && practiceBox !== null && toastBox.y >= practiceBox.y,
+      `Toast liegt innerhalb .practice (toast.y=${Math.round(toastBox?.y ?? -1)}, practice.y=${Math.round(practiceBox?.y ?? -1)})`
+    );
+    assert(
+      toastBox !== null && practiceBox !== null && toastBox.y < practiceBox.y + 200,
+      `Toast nahe am oberen Rand von .practice (delta=${Math.round((toastBox?.y ?? 0) - (practiceBox?.y ?? 0))}px)`
+    );
+
+    // ── Wrong answer: check feedback stays within .practice ──
+    await page.waitForTimeout(1000); // wait for toast to finish
+    await page.evaluate(() => {
+      const el = document.querySelector('.practice');
+      if (el) { el.style.top = '200px'; el.style.height = '612px'; }
+    });
+    await page.locator('.answer-field').fill('99');
+    await page.locator('.ok-btn').click();
+
+    const feedback = page.locator('.feedback');
+    await feedback.waitFor({ timeout: 3000 });
+
+    const practiceBox2 = await page.locator('.practice').boundingBox();
+    const feedbackBox = await feedback.boundingBox();
+    assert(
+      feedbackBox !== null && practiceBox2 !== null && feedbackBox.y >= practiceBox2.y,
+      `Feedback liegt innerhalb .practice (feedback.y=${Math.round(feedbackBox?.y ?? -1)}, practice.y=${Math.round(practiceBox2?.y ?? -1)})`
+    );
+  } finally {
+    await page.close();
+  }
+}
+
 // ─── Run ──────────────────────────────────────────────────────────────────────
 const browser = await chromium.launch();
 try {
@@ -357,6 +689,12 @@ try {
   await testHeaderTrainingMode(browser);
   await testTrainingMode(browser);
   await testTimeout(browser);
+  await testFirefoxKeyboardScroll(browser);
+  await testWrongAnswerFeedback(browser);
+  await testCorrectAnswerFeedback(browser);
+  await testVisualization(browser);
+  await testEnterKeyFeedback(browser);
+  await testVisualViewportOffset(browser);
 } catch (e) {
   console.error('\nUnhandled error:', e.message);
   failures++;

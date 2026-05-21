@@ -2,7 +2,7 @@ import type { AppData } from '../types/index';
 import { SMALL_TABLE_TASK_IDS } from '../types/index';
 
 const STORAGE_KEY = 'monsterknacker';
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
 
 const DEFAULT_APP_DATA: AppData = {
   version: CURRENT_VERSION,
@@ -27,9 +27,23 @@ function migrateV1toV2(data: any): any {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function migrateV2toV3(data: any): any {
+  // updateLastSessionConfig (Iter. 3) incorrectly initialized showVisualization: false.
+  // Any profile with showVisualization===false got it from that bug, not from user intent
+  // (the toggle UI didn't exist before Iter. 5). Reset to true.
+  for (const profile of data.profiles ?? []) {
+    if (profile.settings?.showVisualization === false) {
+      profile.settings.showVisualization = true;
+    }
+  }
+  return data;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function migrate(data: any, fromVersion: number): AppData {
   let migrated = data;
   if (fromVersion < 2) migrated = migrateV1toV2(migrated);
+  if (fromVersion < 3) migrated = migrateV2toV3(migrated);
   migrated.version = CURRENT_VERSION;
   return migrated as AppData;
 }

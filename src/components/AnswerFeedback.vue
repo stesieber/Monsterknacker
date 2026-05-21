@@ -19,7 +19,9 @@ const showViz = computed(() => activeProfile.value?.settings?.showVisualization 
 const nextBtnRef = ref<HTMLButtonElement | null>(null);
 
 onMounted(() => {
-  nextBtnRef.value?.focus();
+  // Delay focus by one macrotask so the keyup event that triggered submit
+  // fires before the button receives focus (preventing Enter from clicking it).
+  setTimeout(() => nextBtnRef.value?.focus({ preventScroll: true }), 0);
 });
 </script>
 

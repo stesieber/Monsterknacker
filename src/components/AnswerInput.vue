@@ -8,7 +8,7 @@ const inputRef = ref<HTMLInputElement | null>(null);
 const rawValue = ref('');
 
 onMounted(() => {
-  inputRef.value?.focus();
+  inputRef.value?.focus({ preventScroll: true });
 });
 
 function onInput(e: Event) {
