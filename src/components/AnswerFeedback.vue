@@ -33,22 +33,20 @@ onMounted(() => {
       {{ isTimeout ? 'Zeit abgelaufen!' : (isCorrect ? 'Richtig!' : 'Nicht ganz.') }}
     </p>
 
-    <template v-if="!isCorrect">
-      <p class="feedback-equation">
-        {{ props.task.a }} × {{ props.task.b }} =
-        <strong class="feedback-answer">{{ props.task.answer }}</strong>
-      </p>
+    <p class="feedback-equation">
+      {{ props.task.a }} × {{ props.task.b }} =
+      <strong class="feedback-answer">{{ props.task.answer }}</strong>
+    </p>
 
-      <p v-if="isTimeout" class="feedback-user-answer">
-        Die Antwort wäre: <strong class="feedback-answer">{{ props.task.a }} × {{ props.task.b }} = {{ props.task.answer }}</strong>
-      </p>
+    <p v-if="isTimeout" class="feedback-user-answer">
+      Die Antwort wäre: <strong class="feedback-answer">{{ props.task.a }} × {{ props.task.b }} = {{ props.task.answer }}</strong>
+    </p>
 
-      <p v-else class="feedback-user-answer">
-        Deine Antwort: {{ props.userAnswer }}
-      </p>
+    <p v-else-if="!isCorrect" class="feedback-user-answer">
+      Deine Antwort: {{ props.userAnswer }}
+    </p>
 
-      <Visualization v-if="showViz" :a="task.a" :b="task.b" />
-    </template>
+    <Visualization v-if="showViz" :a="task.a" :b="task.b" />
 
     <button
       ref="nextBtnRef"

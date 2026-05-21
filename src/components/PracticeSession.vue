@@ -31,6 +31,7 @@ const lastWasTimeout = ref(false);
 const phase = ref<'input' | 'feedback' | 'summary'>('input');
 const inputKey = ref(0);
 const sessionDurationMs = ref(0);
+const showCorrectToast = ref(false);
 let lastSavedSessionMs = 0;
 
 const sessionTimeDisplay = computed(() => formatMs(sessionTimer.elapsedMs.value));
@@ -92,7 +93,14 @@ function onSubmit(value: number) {
   taskCount.value++;
   if (isCorrect) correctCount.value++;
   if (props.config.mode === 'training') trackPracticeTime();
-  phase.value = 'feedback';
+
+  if (isCorrect) {
+    showCorrectToast.value = true;
+    onNext();
+    setTimeout(() => { showCorrectToast.value = false; }, 900);
+  } else {
+    phase.value = 'feedback';
+  }
 }
 
 function onNext() {
@@ -148,6 +156,8 @@ function restart() {
   />
 
   <div v-else ref="practiceEl" class="practice">
+    <div v-if="showCorrectToast" class="correct-toast" aria-hidden="true">👍</div>
+
     <div class="practice-top">
       <CountdownBar
         v-if="config.mode === 'training'"
@@ -274,5 +284,24 @@ function restart() {
   /* margin:auto centers when content fits; collapses to 0 when overflowing
      so overflow starts from the top (correctly scrollable). */
   margin: auto;
+}
+
+.correct-toast {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  font-size: 2.8rem;
+  line-height: 1;
+  pointer-events: none;
+  z-index: 50;
+  animation: toast-pop 900ms ease-out forwards;
+}
+
+@keyframes toast-pop {
+  0%   { opacity: 0; transform: scale(0.3); }
+  25%  { opacity: 1; transform: scale(1.25); }
+  40%  { opacity: 1; transform: scale(1); }
+  75%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.9); }
 }
 </style>

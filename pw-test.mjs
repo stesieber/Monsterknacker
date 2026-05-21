@@ -496,9 +496,9 @@ async function testWrongAnswerFeedback(browser) {
   }
 }
 
-// ─── Test 8: Richtige Antwort — kein "Deine Antwort"-Block ───────────────────
+// ─── Test 8: Richtige Antwort — Toast erscheint, kein Feedback-Dialog ────────
 async function testCorrectAnswerFeedback(browser) {
-  console.log('\n✅ Test 8: Richtige Antwort — ✓ sichtbar, kein "Deine Antwort"');
+  console.log('\n✅ Test 8: Richtige Antwort — 👍-Toast erscheint, kein Feedback-Dialog');
   const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
   try {
     await navigateToAnswerInput(page);
@@ -511,28 +511,28 @@ async function testCorrectAnswerFeedback(browser) {
     await page.locator('.answer-field').fill(String(answer));
     await page.locator('.ok-btn').click();
 
-    const feedback = page.locator('.feedback');
-    await feedback.waitFor({ timeout: 4000 });
+    // Kein Feedback-Dialog bei richtiger Antwort
+    await page.waitForTimeout(100);
+    assert(await page.locator('.feedback').count() === 0, 'Kein Feedback-Dialog bei richtiger Antwort');
 
-    const icon = page.locator('.feedback-icon');
-    assert(await icon.isVisible(), '✓-Icon sichtbar');
-    const iconText = await icon.textContent();
-    assert(iconText?.includes('✓'), `✓-Icon zeigt ✓ (got: "${iconText}")`);
+    // Toast erscheint oben rechts
+    const toast = page.locator('.correct-toast');
+    await toast.waitFor({ timeout: 2000 });
+    assert(await toast.isVisible(), '👍-Toast erscheint');
 
-    const label = page.locator('.feedback-label');
-    const labelText = await label.textContent();
-    assert(labelText?.includes('Richtig'), `Label sagt "Richtig!" (got: "${labelText}")`);
+    // Toast ist oben rechts positioniert
+    const toastBox = await toast.boundingBox();
+    if (toastBox) {
+      assert(toastBox.y < 200, `Toast oben (y=${Math.round(toastBox.y)}px)`);
+      assert(toastBox.x > 200, `Toast rechts (x=${Math.round(toastBox.x)}px bei vw=375)`);
+    }
 
-    // Kein "Deine Antwort" bei richtiger Antwort
-    const userAns = page.locator('.feedback-user-answer');
-    assert(await userAns.count() === 0, 'Kein "Deine Antwort"-Block bei richtiger Antwort');
+    // Nächste Aufgabe ist bereits sichtbar hinter dem Toast
+    assert(await page.locator('.answer-field').isVisible(), 'Nächste Aufgabe direkt sichtbar');
 
-    const feedbackClass = await feedback.getAttribute('class');
-    assert(feedbackClass?.includes('feedback--correct'), 'Feedback hat Klasse feedback--correct');
-
-    // Kompaktes Feedback: keine Visualisierung bei richtiger Antwort
-    const viz = page.locator('.viz-container');
-    assert(await viz.count() === 0, 'Keine Visualisierung bei richtiger Antwort');
+    // Toast verschwindet nach ~900ms
+    await page.waitForTimeout(1000);
+    assert(await toast.count() === 0, 'Toast nach Animation verschwunden');
   } finally {
     await page.close();
   }
