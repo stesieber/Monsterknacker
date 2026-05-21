@@ -33,15 +33,15 @@ function done() {
 }
 
 onMounted(() => {
-  timeouts.push(setTimeout(() => (phase.value = 'sparkle'), 300));
-  timeouts.push(setTimeout(() => (phase.value = 'transform'), 800));
+  timeouts.push(setTimeout(() => (phase.value = 'sparkle'), 600));
+  timeouts.push(setTimeout(() => (phase.value = 'transform'), 1600));
   timeouts.push(
     setTimeout(() => {
       phase.value = 'hero';
       heroVisible.value = true;
-    }, 1000)
+    }, 2000)
   );
-  timeouts.push(setTimeout(() => done(), 1400));
+  timeouts.push(setTimeout(() => done(), 2800));
 
   // Delay listener to avoid capturing the Enter keydown that triggered submission
   timeouts.push(setTimeout(() => document.addEventListener('keydown', onKey), 300));
