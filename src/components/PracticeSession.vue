@@ -220,11 +220,13 @@ function restart() {
 
 .practice-main {
   flex: 1;
+  min-height: 0; /* allow flex child to shrink when keyboard opens */
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 40px;
-  padding: 32px 16px;
+  gap: clamp(20px, 5vh, 40px);
+  padding: clamp(16px, 4vh, 32px) 16px;
 }
 </style>

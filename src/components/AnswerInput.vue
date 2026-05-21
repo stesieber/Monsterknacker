@@ -59,15 +59,15 @@ function onKeydown(e: KeyboardEvent) {
   display: flex;
   gap: 12px;
   align-items: stretch;
-  justify-content: center;
   width: 100%;
-  max-width: 320px;
+  max-width: 340px;
 }
 
 .answer-field {
   flex: 1;
+  min-width: 0; /* prevents input from overflowing flex container */
   min-height: 56px;
-  padding: 0 16px;
+  padding: 0 12px;
   border: 2px solid #d1d5db;
   border-radius: 12px;
   font-size: 1.6rem;
@@ -88,9 +88,10 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 .ok-btn {
-  min-width: 72px;
+  flex-shrink: 0;
+  width: 72px;
   min-height: 56px;
-  padding: 0 20px;
+  padding: 0;
   border-radius: 12px;
   background: var(--color-primary);
   color: #fff;
