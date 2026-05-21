@@ -520,10 +520,12 @@ async function testCorrectAnswerFeedback(browser) {
     await toast.waitFor({ timeout: 2000 });
     assert(await toast.isVisible(), '👍-Toast erscheint');
 
-    // Toast ist oben rechts positioniert
+    // Toast ist oben rechts positioniert (position:absolute relativ zu .practice)
+    const practiceBox = await page.locator('.practice').boundingBox();
     const toastBox = await toast.boundingBox();
-    if (toastBox) {
-      assert(toastBox.y < 200, `Toast oben (y=${Math.round(toastBox.y)}px)`);
+    if (toastBox && practiceBox) {
+      assert(toastBox.y >= practiceBox.y, `Toast nicht oberhalb von .practice (toast.y=${Math.round(toastBox.y)}, practice.y=${Math.round(practiceBox.y)})`);
+      assert(toastBox.y < practiceBox.y + 200, `Toast nahe am oberen Rand (y=${Math.round(toastBox.y)}px)`);
       assert(toastBox.x > 200, `Toast rechts (x=${Math.round(toastBox.x)}px bei vw=375)`);
     }
 
@@ -611,6 +613,72 @@ async function testVisualization(browser) {
   }
 }
 
+// ─── Test 11: Visual-Viewport-Simulation — Toast und Feedback bleiben sichtbar
+//
+// Simuliert das Firefox-Mobile-Verhalten: syncVisualViewport setzt
+// practiceEl.style.top = offsetTop (z.B. 200px), wenn die Tastatur öffnet.
+// position:fixed-Elemente driften dann aus dem sichtbaren Bereich.
+// position:absolute-Elemente (relativ zu .practice) bleiben korrekt.
+//
+// Bug den dies reproduziert:
+//   Toast war position:fixed → bei practice.top=200px lag der Toast bei
+//   layout-y=72, der Visual Viewport beginnt aber bei y=200 → unsichtbar.
+async function testVisualViewportOffset(browser) {
+  console.log('\n📐 Test 11: Visual-Viewport-Simulation — Toast/Feedback bei practice.top=200px');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Simuliere syncVisualViewport mit offsetTop=200 (Tastatur offen)
+    await page.evaluate(() => {
+      const el = document.querySelector('.practice');
+      if (el) { el.style.top = '200px'; el.style.height = '612px'; }
+    });
+
+    // ── Correct answer: check toast stays within .practice ──
+    const taskText = await page.locator('.task-display').textContent() ?? '';
+    const match = taskText.match(/(\d+)\s*×\s*(\d+)/);
+    const answer = match ? parseInt(match[1]) * parseInt(match[2]) : 1;
+    await page.locator('.answer-field').fill(String(answer));
+    await page.locator('.ok-btn').click();
+
+    const toast = page.locator('.correct-toast');
+    await toast.waitFor({ timeout: 2000 });
+
+    const practiceBox = await page.locator('.practice').boundingBox();
+    const toastBox = await toast.boundingBox();
+    assert(
+      toastBox !== null && practiceBox !== null && toastBox.y >= practiceBox.y,
+      `Toast liegt innerhalb .practice (toast.y=${Math.round(toastBox?.y ?? -1)}, practice.y=${Math.round(practiceBox?.y ?? -1)})`
+    );
+    assert(
+      toastBox !== null && practiceBox !== null && toastBox.y < practiceBox.y + 200,
+      `Toast nahe am oberen Rand von .practice (delta=${Math.round((toastBox?.y ?? 0) - (practiceBox?.y ?? 0))}px)`
+    );
+
+    // ── Wrong answer: check feedback stays within .practice ──
+    await page.waitForTimeout(1000); // wait for toast to finish
+    await page.evaluate(() => {
+      const el = document.querySelector('.practice');
+      if (el) { el.style.top = '200px'; el.style.height = '612px'; }
+    });
+    await page.locator('.answer-field').fill('99');
+    await page.locator('.ok-btn').click();
+
+    const feedback = page.locator('.feedback');
+    await feedback.waitFor({ timeout: 3000 });
+
+    const practiceBox2 = await page.locator('.practice').boundingBox();
+    const feedbackBox = await feedback.boundingBox();
+    assert(
+      feedbackBox !== null && practiceBox2 !== null && feedbackBox.y >= practiceBox2.y,
+      `Feedback liegt innerhalb .practice (feedback.y=${Math.round(feedbackBox?.y ?? -1)}, practice.y=${Math.round(practiceBox2?.y ?? -1)})`
+    );
+  } finally {
+    await page.close();
+  }
+}
+
 // ─── Run ──────────────────────────────────────────────────────────────────────
 const browser = await chromium.launch();
 try {
@@ -626,6 +694,7 @@ try {
   await testCorrectAnswerFeedback(browser);
   await testVisualization(browser);
   await testEnterKeyFeedback(browser);
+  await testVisualViewportOffset(browser);
 } catch (e) {
   console.error('\nUnhandled error:', e.message);
   failures++;

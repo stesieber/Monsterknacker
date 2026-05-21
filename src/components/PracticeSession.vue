@@ -179,7 +179,7 @@ function restart() {
     </div>
 
     <main class="practice-main">
-      <div class="practice-content">
+      <div class="practice-content" :class="{ 'practice-content--feedback': phase === 'feedback' }">
         <TaskDisplay v-if="currentTask" :task="currentTask" />
 
         <AnswerInput
@@ -286,8 +286,15 @@ function restart() {
   margin: auto;
 }
 
+/* During feedback, anchor content to the top so it doesn't jump as the
+   keyboard closes and margin:auto recalculates with the growing viewport. */
+.practice-content--feedback {
+  margin-top: 0;
+  margin-bottom: auto;
+}
+
 .correct-toast {
-  position: fixed;
+  position: absolute;
   top: 72px;
   right: 16px;
   font-size: 2.8rem;
