@@ -529,6 +529,41 @@ async function testCorrectAnswerFeedback(browser) {
 
     const feedbackClass = await feedback.getAttribute('class');
     assert(feedbackClass?.includes('feedback--correct'), 'Feedback hat Klasse feedback--correct');
+
+    // Kompaktes Feedback: keine Visualisierung bei richtiger Antwort
+    const viz = page.locator('.viz-container');
+    assert(await viz.count() === 0, 'Keine Visualisierung bei richtiger Antwort');
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 10: Enter-Taste — Feedback bleibt sichtbar (kein Auto-Skip) ────────
+async function testEnterKeyFeedback(browser) {
+  console.log('\n⌨️  Test 10: Enter-Taste mit falscher Antwort — Feedback bleibt sichtbar');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Falsche Antwort (99 ist für 1–9×1–9 nie korrekt), Enter statt OK-Button
+    await page.locator('.answer-field').fill('99');
+    await page.locator('.answer-field').press('Enter');
+
+    // Feedback-Phase muss erscheinen
+    const feedback = page.locator('.feedback');
+    await feedback.waitFor({ timeout: 4000 });
+    assert(await feedback.isVisible(), 'Feedback erscheint nach Enter');
+
+    // 400ms warten — ohne Fix wäre Feedback durch Auto-Click auf "Weiter" schon weg
+    await page.waitForTimeout(400);
+    assert(await feedback.isVisible(), 'Feedback bleibt nach 400ms sichtbar (kein Auto-Skip via keyup)');
+
+    // "Nicht ganz." muss angezeigt sein (nicht weitergesprungen)
+    const labelText = await page.locator('.feedback-label').textContent();
+    assert(labelText?.includes('Nicht ganz'), `Feedback zeigt "Nicht ganz." (got: "${labelText}")`);
+
+    // Eingabefeld darf nicht mehr im DOM sein (wir sind in Feedback-Phase)
+    assert(await page.locator('.answer-field').count() === 0, 'Eingabefeld weg (Feedback-Phase aktiv)');
   } finally {
     await page.close();
   }
@@ -590,6 +625,7 @@ try {
   await testWrongAnswerFeedback(browser);
   await testCorrectAnswerFeedback(browser);
   await testVisualization(browser);
+  await testEnterKeyFeedback(browser);
 } catch (e) {
   console.error('\nUnhandled error:', e.message);
   failures++;

@@ -48,6 +48,21 @@ const axisLabelsB = computed(() => {
 function blockFontSize(w: number, h: number): number {
   return w < 2 || h < 2 ? 12 : 18;
 }
+
+const gridLines = computed(() => {
+  const lines: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+  for (const bl of blocks.value) {
+    for (let i = 1; i < bl.width; i++) {
+      const x = PAD_LEFT + (bl.x + i) * UNIT;
+      lines.push({ x1: x, y1: PAD_TOP + bl.y * UNIT, x2: x, y2: PAD_TOP + (bl.y + bl.height) * UNIT });
+    }
+    for (let j = 1; j < bl.height; j++) {
+      const y = PAD_TOP + (bl.y + j) * UNIT;
+      lines.push({ x1: PAD_LEFT + bl.x * UNIT, y1: y, x2: PAD_LEFT + (bl.x + bl.width) * UNIT, y2: y });
+    }
+  }
+  return lines;
+});
 </script>
 
 <template>
@@ -70,6 +85,19 @@ function blockFontSize(w: number, h: number): number {
         stroke="var(--viz-stroke)"
         stroke-width="2"
         rx="2"
+      />
+
+      <!-- Inner grid lines showing individual cells -->
+      <line
+        v-for="(ln, i) in gridLines"
+        :key="`grid-${i}`"
+        :x1="ln.x1"
+        :y1="ln.y1"
+        :x2="ln.x2"
+        :y2="ln.y2"
+        stroke="var(--viz-stroke)"
+        stroke-width="1"
+        stroke-opacity="0.6"
       />
 
       <!-- Sub-product labels centered in each block -->

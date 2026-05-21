@@ -19,7 +19,9 @@ const showViz = computed(() => activeProfile.value?.settings?.showVisualization 
 const nextBtnRef = ref<HTMLButtonElement | null>(null);
 
 onMounted(() => {
-  nextBtnRef.value?.focus({ preventScroll: true });
+  // Delay focus by one macrotask so the keyup event that triggered submit
+  // fires before the button receives focus (preventing Enter from clicking it).
+  setTimeout(() => nextBtnRef.value?.focus({ preventScroll: true }), 0);
 });
 </script>
 
@@ -31,20 +33,22 @@ onMounted(() => {
       {{ isTimeout ? 'Zeit abgelaufen!' : (isCorrect ? 'Richtig!' : 'Nicht ganz.') }}
     </p>
 
-    <p class="feedback-equation">
-      {{ props.task.a }} × {{ props.task.b }} =
-      <strong class="feedback-answer">{{ props.task.answer }}</strong>
-    </p>
+    <template v-if="!isCorrect">
+      <p class="feedback-equation">
+        {{ props.task.a }} × {{ props.task.b }} =
+        <strong class="feedback-answer">{{ props.task.answer }}</strong>
+      </p>
 
-    <p v-if="isTimeout" class="feedback-user-answer">
-      Die Antwort wäre: <strong class="feedback-answer">{{ props.task.a }} × {{ props.task.b }} = {{ props.task.answer }}</strong>
-    </p>
+      <p v-if="isTimeout" class="feedback-user-answer">
+        Die Antwort wäre: <strong class="feedback-answer">{{ props.task.a }} × {{ props.task.b }} = {{ props.task.answer }}</strong>
+      </p>
 
-    <p v-else-if="!isCorrect" class="feedback-user-answer">
-      Deine Antwort: {{ props.userAnswer }}
-    </p>
+      <p v-else class="feedback-user-answer">
+        Deine Antwort: {{ props.userAnswer }}
+      </p>
 
-    <Visualization v-if="showViz" :a="task.a" :b="task.b" />
+      <Visualization v-if="showViz" :a="task.a" :b="task.b" />
+    </template>
 
     <button
       ref="nextBtnRef"
