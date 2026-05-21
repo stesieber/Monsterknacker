@@ -148,8 +148,6 @@ function restart() {
       </header>
     </div>
 
-    <div class="practice-top-spacer" :class="{ 'has-countdown': config.mode === 'training' }" />
-
     <main class="practice-main">
       <TaskDisplay v-if="currentTask" :task="currentTask" />
 
@@ -173,30 +171,18 @@ function restart() {
 
 <style scoped>
 .practice {
-  height: 100dvh;
+  position: fixed;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  max-width: 700px;
-  margin: 0 auto;
+  overflow: hidden;
 }
 
 .practice-top {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
+  flex-shrink: 0;
   background: var(--color-surface);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-
-.practice-top-spacer {
-  flex-shrink: 0;
-  height: 56px;
-}
-
-.practice-top-spacer.has-countdown {
-  height: 64px; /* 56px header + 8px countdown bar */
+  width: 100%;
 }
 
 .practice-header {
@@ -205,6 +191,9 @@ function restart() {
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
+  max-width: 700px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .practice-task-nr {
@@ -244,7 +233,7 @@ function restart() {
 
 .practice-main {
   flex: 1;
-  min-height: 0; /* allow flex child to shrink when keyboard opens */
+  min-height: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -252,5 +241,8 @@ function restart() {
   justify-content: center;
   gap: clamp(20px, 5vh, 40px);
   padding: clamp(16px, 4vh, 32px) 16px;
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
 }
 </style>
