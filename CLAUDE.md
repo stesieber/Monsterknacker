@@ -18,9 +18,9 @@ npm run preview    # Vorschau des Build-Artefakts
 
 **Vor jedem Commit prüfen:**
 ```bash
-npm run lint && npx vue-tsc --noEmit && npm run build
+npm run lint && npx vue-tsc --noEmit && npm run build && npm test
 ```
-Alle drei müssen fehlerfrei durchlaufen. Die zwei ESLint-Warnings in `useStorage.ts` (Stub-Parameter `_data`, `_fromVersion`) sind bekannt und akzeptiert.
+Alle müssen fehlerfrei durchlaufen.
 
 ---
 
@@ -33,13 +33,15 @@ src/
 ├── types/
 │   └── index.ts                   # Alle geteilten Interfaces & Typen
 ├── composables/
-│   ├── useStorage.ts              # localStorage load/save (AppData)
-│   ├── useProfiles.ts             # Singleton-State, Profil-CRUD + recordTaskAttempt
-│   ├── useTaskGenerator.ts        # Zufalls-Aufgaben-Generator (1×1, kein State)
+│   ├── useStorage.ts              # localStorage load/save (AppData, v2 migration)
+│   ├── useProfiles.ts             # Singleton-State, Profil-CRUD + recordTaskAttempt + Box-Update
+│   ├── useTaskSelector.ts         # Adaptive Aufgabenauswahl (Leitner + Session-Repeats)
 │   ├── useTaskTimer.ts            # Countdown-Timer pro Aufgabe (Trainingsmodus)
 │   └── useSessionTimer.ts         # Session-Zeitzähler mit Auto-Pause
 ├── utils/
-│   └── time.ts                    # formatMs(ms) → "m:ss" / "h:mm:ss"
+│   ├── time.ts                    # formatMs(ms) → "m:ss" / "h:mm:ss"
+│   ├── task.ts                    # createTask, parseTaskId
+│   └── leitner.ts                 # Pure Leitner-Logik: nextBox, selectNextTask, updateSessionRepeats
 ├── components/
 │   ├── ProfileSelector.vue        # Profilauswahl / -erstellung (Startscreen)
 │   ├── ProfileCard.vue            # Einzelne Profilkarte
@@ -73,7 +75,7 @@ ProfileSelector → HomeScreen → PracticeSession → (SessionSummary innerhalb
 Kein Pinia. `useProfiles` hält seinen `state` auf Modul-Ebene als `reactive<AppData>`. Alle Komponenten, die `useProfiles()` aufrufen, teilen dieselbe Instanz. Ein `watch(state, ..., { deep: true })` persistiert automatisch nach jeder Änderung.
 
 ### Persistenz
-`localStorage` unter dem Key `monsterknacker`. Format: `AppData` (JSON). Version aktuell `1`. Migration-Stub in `useStorage.ts` vorhanden für künftige Versionssprünge.
+`localStorage` unter dem Key `monsterknacker`. Format: `AppData` (JSON). Version aktuell `2`. Migration `v1→v2` füllt alle 81 Aufgaben-IDs mit `box: 1` auf. Beim Laden: `version < CURRENT` → migrieren + sofort speichern; `version > CURRENT` → Default.
 
 ### Komponenten-Prinzip
 - **Orchestrator-Komponenten** (`PracticeSession`, `ProfileSelector`) halten State und rufen Composables auf.
@@ -88,7 +90,7 @@ Kein Pinia. `useProfiles` hält seinen `state` auf Modul-Ebene als `reactive<App
 // src/types/index.ts
 
 interface AppData {
-  version: number;           // aktuell 1
+  version: number;           // aktuell 2
   activeProfileId: string | null;
   profiles: Profile[];
 }
@@ -99,21 +101,23 @@ interface Profile {
   emoji: string;             // aus AVAILABLE_EMOJIS
   createdAt: number;         // Unix ms
   settings?: ProfileSettings;
-  tasks?: TaskMap;           // Key: "AxB" z.B. "7x8", seit Iteration 2
-  stats?: Record<string, unknown>;
+  tasks?: TaskMap;           // Key: "AxB" z.B. "7x8"; alle 81 seit Iteration 4
+  stats?: ProfileStats;
 }
+
+type LeitnerBox = 1 | 2 | 3 | 4 | 5;
 
 interface TaskState {
   attempts: number;
   correct: number;
   lastAttemptAt?: number;    // Unix ms
-  box?: number;              // Leitner-Fach, ab Iteration 4
+  box: LeitnerBox;           // Leitner-Fach (required seit Iteration 4)
   monsterType?: number;      // Monster-Design, ab Iteration 6
 }
 
 type TaskMap = Record<string, TaskState>;
 
-interface Task {              // aus useTaskGenerator, nicht persistiert
+interface Task {              // in src/types/index.ts, nicht persistiert
   id: string;                // "AxB" z.B. "7x8"
   a: number;                 // 1–9
   b: number;                 // 1–9
@@ -184,13 +188,13 @@ Lazy-initialisiert `profile.tasks` und den `TaskState` beim ersten Aufruf. Muss 
 | 1 | Profilverwaltung, localStorage, Grundstruktur | ✅ fertig |
 | 2 | Aufgaben-Kernschleife, freie Übungs-Session (×, 1–9) | ✅ fertig |
 | 3 | Timer, Schwierigkeitsstufen, Trainingsmodus, ModeSelector | ✅ fertig |
-| 4 | Leitner-System, adaptive Aufgabenauswahl | 🔜 offen |
+| 4 | Leitner-System, adaptive Aufgabenauswahl | ✅ fertig |
 | 5 | Timer, Schwierigkeitsstufen | 🔜 offen |
 | 6 | Monster-Design / Visualisierung | 🔜 offen |
 | 7 | Trainingsmodus | 🔜 offen |
 | 8 | Session-Zeit-Tracking, Stats | 🔜 offen |
 
-**Noch nicht implementiert:** Division, grosses 1×1 (bis 12), Timer, Leitner-Fächer, Monster/Helden-Visualisierung, Sound.
+**Noch nicht implementiert:** Division, grosses 1×1 (bis 12), Monster/Helden-Visualisierung, Sound.
 
 ---
 

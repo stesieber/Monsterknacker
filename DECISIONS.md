@@ -83,3 +83,27 @@ A timeout increments `attempts` without incrementing `correct` — identical to 
 ## `active` flag in `useTaskTimer` guards against post-clearInterval tick
 
 `clearInterval()` prevents future ticks but cannot cancel a callback already queued in the event loop. The `active` boolean is checked at the top of `tick()` so a stale queued callback is a no-op even if it fires after `stop()`. `PracticeSession` also guards with `phase !== 'input'` for belt-and-suspenders safety.
+
+---
+
+## Iteration 4 decisions
+
+## Vitest for unit tests
+
+Vitest was added as the unit test runner (`npm test` → `vitest run`). The old Playwright e2e tests moved to `npm run test:e2e`. Vitest was chosen because it reuses the existing Vite config, requires zero additional configuration, and the leitner logic is pure TypeScript with no DOM dependency (environment: `node`).
+
+## `useTaskGenerator.ts` removed, `Task` moved to `types/index.ts`
+
+`useTaskGenerator.ts` was the only source of the `Task` interface in iterations 1–3. Now that `Task` is used by multiple modules (`utils/leitner.ts`, `useTaskSelector.ts`, `PracticeSession.vue`, `TaskDisplay.vue`, `AnswerFeedback.vue`), it was moved to `src/types/index.ts` where all shared types live. The generator's random-pick logic was superseded by the weighted Leitner selection in `useTaskSelector`.
+
+## `ensureAllSmallTableTasks` uses `as any` for migration-compatibility
+
+`TaskState.box` is typed as required `LeitnerBox`, but data loaded from localStorage (pre-migration) may have `box: undefined`. Since `noUnusedLocals` and `strict` prevent a clean `undefined` check on a required field, the one access inside `ensureAllSmallTableTasks` uses `as any` to handle the defensive case. This is isolated to one line in a utility function that exists specifically for this purpose.
+
+## `selector.taskCount` vs component `taskCount`
+
+`useTaskSelector` maintains its own `taskCount` (number of tasks selected, incremented in `next()`) for repeat-queue scheduling. `PracticeSession` keeps a separate `taskCount` ref (number of tasks answered, incremented in `onSubmit`/`onTimeout`) for the UI display and session summary. They are offset by one during any in-progress task but this does not affect correctness.
+
+## `recordTaskAttempt` before `selector.next()` ordering
+
+In both `onSubmit` and `onTimeout`, `recordTaskAttempt` (which updates the Leitner box in the profile) is called before `selector.next()` (which reads the profile boxes for weighted selection). This ensures the selector always works with the most up-to-date box values, as required by the spec.
