@@ -82,6 +82,8 @@ function onTimeout() {
 function onSubmit(value: number) {
   if (!currentTask.value || phase.value !== 'input') return;
   if (props.config.mode === 'training') taskTimer.stop();
+  // Explicitly dismiss the soft keyboard before switching to feedback phase.
+  (document.activeElement as HTMLElement | null)?.blur();
   const isCorrect = value === currentTask.value.answer;
   recordTaskAttempt(currentTask.value.id, isCorrect);
   selector.recordResult(currentTask.value.id, isCorrect);
@@ -167,22 +169,24 @@ function restart() {
     </div>
 
     <main class="practice-main">
-      <TaskDisplay v-if="currentTask" :task="currentTask" />
+      <div class="practice-content">
+        <TaskDisplay v-if="currentTask" :task="currentTask" />
 
-      <AnswerInput
-        v-if="phase === 'input'"
-        :key="inputKey"
-        @submit="onSubmit"
-      />
+        <AnswerInput
+          v-if="phase === 'input'"
+          :key="inputKey"
+          @submit="onSubmit"
+        />
 
-      <AnswerFeedback
-        v-else-if="phase === 'feedback' && currentTask && (lastAnswer !== null || lastWasTimeout)"
-        :task="currentTask"
-        :user-answer="lastAnswer ?? 0"
-        :is-correct="!lastWasTimeout && lastAnswer === currentTask.answer"
-        :is-timeout="lastWasTimeout"
-        @next="onNext"
-      />
+        <AnswerFeedback
+          v-else-if="phase === 'feedback' && currentTask && (lastAnswer !== null || lastWasTimeout)"
+          :task="currentTask"
+          :user-answer="lastAnswer ?? 0"
+          :is-correct="!lastWasTimeout && lastAnswer === currentTask.answer"
+          :is-timeout="lastWasTimeout"
+          @next="onNext"
+        />
+      </div>
     </main>
   </div>
 </template>
@@ -256,11 +260,19 @@ function restart() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  width: 100%;
+}
+
+.practice-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: clamp(20px, 5vh, 40px);
   padding: clamp(16px, 4vh, 32px) 16px;
   width: 100%;
-  max-width: 700px;
-  margin: 0 auto;
+  max-width: 360px;
+  /* margin:auto centers when content fits; collapses to 0 when overflowing
+     so overflow starts from the top (correctly scrollable). */
+  margin: auto;
 }
 </style>

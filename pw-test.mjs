@@ -442,6 +442,140 @@ async function testFirefoxKeyboardScroll(browser) {
   }
 }
 
+// ─── Test 7: Falscher Antworte → Fehler-Feedback vollständig sichtbar ─────────
+async function testWrongAnswerFeedback(browser) {
+  console.log('\n❌ Test 7: Falsche Antwort — vollständiges Fehler-Feedback sichtbar');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Immer falsche Antwort: 99 ist nie korrekt für Faktoren 1–9
+    await page.locator('.answer-field').fill('99');
+    await page.locator('.ok-btn').click();
+
+    // Feedback-Phase abwarten
+    const feedback = page.locator('.feedback');
+    await feedback.waitFor({ timeout: 4000 });
+
+    // ✗-Icon sichtbar
+    const icon = page.locator('.feedback-icon');
+    assert(await icon.isVisible(), '✗-Icon sichtbar');
+    const iconText = await icon.textContent();
+    assert(iconText?.includes('✗'), `✗-Icon zeigt ✗ (got: "${iconText}")`);
+
+    // "Nicht ganz." Label sichtbar
+    const label = page.locator('.feedback-label');
+    assert(await label.isVisible(), '"Nicht ganz."-Label sichtbar');
+    const labelText = await label.textContent();
+    assert(labelText?.includes('Nicht ganz'), `Label sagt "Nicht ganz." (got: "${labelText}")`);
+
+    // Gleichung sichtbar
+    const eq = page.locator('.feedback-equation');
+    assert(await eq.isVisible(), 'Gleichung sichtbar');
+
+    // "Deine Antwort: 99" sichtbar
+    const userAns = page.locator('.feedback-user-answer');
+    assert(await userAns.isVisible(), '"Deine Antwort"-Zeile sichtbar');
+    const userAnsText = await userAns.textContent();
+    assert(userAnsText?.includes('99'), `"Deine Antwort" enthält 99 (got: "${userAnsText}")`);
+
+    // ✗-Icon ist nicht vertikal abgeschnitten — boundingBox.y muss innerhalb des viewports sein
+    const iconBox = await icon.boundingBox();
+    assert(iconBox !== null && iconBox.y >= 0, `✗-Icon nicht über Viewport-Rand (y=${Math.round(iconBox?.y ?? -1)}px)`);
+
+    // "Weiter"-Button sichtbar (ohne Scrollen)
+    const weiter = page.locator('.next-btn');
+    assert(await weiter.isVisible(), '"Weiter"-Button sichtbar');
+
+    // Kein richtiger-Antwort-Marker bei falscher Antwort
+    const feedbackClass = await feedback.getAttribute('class');
+    assert(feedbackClass?.includes('feedback--wrong'), 'Feedback hat Klasse feedback--wrong');
+    assert(!feedbackClass?.includes('feedback--correct'), 'Feedback hat NICHT Klasse feedback--correct');
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 8: Richtige Antwort — kein "Deine Antwort"-Block ───────────────────
+async function testCorrectAnswerFeedback(browser) {
+  console.log('\n✅ Test 8: Richtige Antwort — ✓ sichtbar, kein "Deine Antwort"');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Richtige Antwort aus DOM lesen
+    const taskText = await page.locator('.task-display').textContent() ?? '';
+    const match = taskText.match(/(\d+)\s*×\s*(\d+)/);
+    const answer = match ? parseInt(match[1]) * parseInt(match[2]) : 1;
+
+    await page.locator('.answer-field').fill(String(answer));
+    await page.locator('.ok-btn').click();
+
+    const feedback = page.locator('.feedback');
+    await feedback.waitFor({ timeout: 4000 });
+
+    const icon = page.locator('.feedback-icon');
+    assert(await icon.isVisible(), '✓-Icon sichtbar');
+    const iconText = await icon.textContent();
+    assert(iconText?.includes('✓'), `✓-Icon zeigt ✓ (got: "${iconText}")`);
+
+    const label = page.locator('.feedback-label');
+    const labelText = await label.textContent();
+    assert(labelText?.includes('Richtig'), `Label sagt "Richtig!" (got: "${labelText}")`);
+
+    // Kein "Deine Antwort" bei richtiger Antwort
+    const userAns = page.locator('.feedback-user-answer');
+    assert(await userAns.count() === 0, 'Kein "Deine Antwort"-Block bei richtiger Antwort');
+
+    const feedbackClass = await feedback.getAttribute('class');
+    assert(feedbackClass?.includes('feedback--correct'), 'Feedback hat Klasse feedback--correct');
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Test 9: Visualisierung — erscheint im Feedback ──────────────────────────
+async function testVisualization(browser) {
+  console.log('\n🟦 Test 9: Visualisierung erscheint nach Antwort');
+  const page = await browser.newPage({ viewport: { width: 375, height: 812 } });
+  try {
+    await navigateToAnswerInput(page);
+
+    // Antwort einreichen (egal ob richtig oder falsch)
+    await page.locator('.answer-field').fill('99');
+    await page.locator('.ok-btn').click();
+    await page.locator('.feedback').waitFor({ timeout: 4000 });
+
+    // Visualisierung vorhanden
+    const viz = page.locator('.viz-container');
+    assert(await viz.count() > 0, 'Visualisierung (.viz-container) im DOM vorhanden');
+    assert(await viz.isVisible(), 'Visualisierung sichtbar');
+
+    // SVG mit viewBox gerendert
+    const svg = page.locator('.viz-container svg');
+    assert(await svg.count() > 0, 'SVG-Element vorhanden');
+    const vb = await svg.getAttribute('viewBox');
+    assert(vb !== null && vb.length > 0, `SVG hat viewBox-Attribut: "${vb}"`);
+
+    // Mindestens ein Rect (farbiger Block) vorhanden
+    const rects = page.locator('.viz-container svg rect');
+    const rectCount = await rects.count();
+    assert(rectCount >= 1 && rectCount <= 4, `${rectCount} Rechteck(e) im SVG (erwartet 1–4)`);
+
+    // Visualisierung nicht vertikal abgeschnitten
+    const vizBox = await viz.boundingBox();
+    assert(vizBox !== null && vizBox.y >= 0, `Visualisierung nicht über Viewport-Rand (y=${Math.round(vizBox?.y ?? -1)}px)`);
+
+    // Auch bei Tastatur-Viewport (390px) noch sichtbar (scrollbar)
+    await page.setViewportSize({ width: 375, height: 390 });
+    await page.waitForTimeout(100);
+    const vizSmall = page.locator('.viz-container');
+    assert(await vizSmall.count() > 0, 'Visualisierung bei kleinem Viewport im DOM');
+  } finally {
+    await page.close();
+  }
+}
+
 // ─── Run ──────────────────────────────────────────────────────────────────────
 const browser = await chromium.launch();
 try {
@@ -453,6 +587,9 @@ try {
   await testTrainingMode(browser);
   await testTimeout(browser);
   await testFirefoxKeyboardScroll(browser);
+  await testWrongAnswerFeedback(browser);
+  await testCorrectAnswerFeedback(browser);
+  await testVisualization(browser);
 } catch (e) {
   console.error('\nUnhandled error:', e.message);
   failures++;
