@@ -402,6 +402,22 @@ async function testFirefoxKeyboardScroll(browser) {
     assert(await page.locator('.practice-task-nr').isVisible(), 'Aufgaben-Nr. sichtbar');
     assert(await page.locator('.end-btn').isVisible(), '"Beenden"-Button sichtbar');
 
+    // Prüfe visualViewport-Kompensation: wenn offsetTop > 0, muss practice.top angepasst sein
+    const vvCompensation = await page.evaluate(() => {
+      const el = document.querySelector('.practice');
+      if (!el || !window.visualViewport) return null;
+      return {
+        elTop: parseFloat(window.getComputedStyle(el).top || '0'),
+        vvOffsetTop: window.visualViewport.offsetTop,
+      };
+    });
+    if (vvCompensation) {
+      assert(
+        Math.abs(vvCompensation.elTop - vvCompensation.vvOffsetTop) < 2,
+        `visualViewport-Offset kompensiert (practice.top=${vvCompensation.elTop}px, vv.offsetTop=${vvCompensation.vvOffsetTop}px)`
+      );
+    }
+
     // Mehrere Aufgaben durchklicken → kein kumulativer Scroll-Drift
     for (let i = 0; i < 3; i++) {
       await page.locator('.answer-field').fill('42');

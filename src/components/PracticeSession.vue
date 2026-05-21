@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useTaskSelector } from '../composables/useTaskSelector';
 import { useProfiles } from '../composables/useProfiles';
 import { useTaskTimer } from '../composables/useTaskTimer';
@@ -22,6 +22,7 @@ const { activeProfile, recordTaskAttempt, addPracticeTimeMs } = useProfiles();
 const taskTimer = useTaskTimer();
 const sessionTimer = useSessionTimer();
 
+const practiceEl = ref<HTMLDivElement | null>(null);
 const currentTask = ref<Task | null>(null);
 const taskCount = ref(0);
 const correctCount = ref(0);
@@ -34,6 +35,16 @@ let lastSavedSessionMs = 0;
 
 const sessionTimeDisplay = computed(() => formatMs(sessionTimer.elapsedMs.value));
 
+// Firefox Mobile offsets the visual viewport when the soft keyboard opens,
+// causing position:fixed elements to drift off-screen. We compensate by
+// syncing the container's top/height to the visual viewport in real time.
+function syncVisualViewport() {
+  if (!practiceEl.value || !window.visualViewport) return;
+  const { offsetTop, height } = window.visualViewport;
+  practiceEl.value.style.top = `${offsetTop}px`;
+  practiceEl.value.style.height = `${height}px`;
+}
+
 onMounted(() => {
   selector.reset();
   currentTask.value = selector.next(activeProfile.value!);
@@ -41,6 +52,13 @@ onMounted(() => {
     sessionTimer.start();
     taskTimer.start(DIFFICULTY_TIMEOUT_MS[props.config.difficulty!], onTimeout);
   }
+  window.visualViewport?.addEventListener('resize', syncVisualViewport);
+  window.visualViewport?.addEventListener('scroll', syncVisualViewport);
+});
+
+onUnmounted(() => {
+  window.visualViewport?.removeEventListener('resize', syncVisualViewport);
+  window.visualViewport?.removeEventListener('scroll', syncVisualViewport);
 });
 
 function trackPracticeTime() {
@@ -127,7 +145,7 @@ function restart() {
     @exit="emit('exit')"
   />
 
-  <div v-else class="practice">
+  <div v-else ref="practiceEl" class="practice">
     <div class="practice-top">
       <CountdownBar
         v-if="config.mode === 'training'"
