@@ -223,3 +223,31 @@ Für `56 ÷ 7` wird `partition(7, 8)` aufgerufen — dasselbe Bild wie für `7 �
 ## Default Operation/Range für neue Profile: `mul` + `small`
 
 Sanfter Einstieg ins kleine 1×1. Die Voreinstellung wirkt nur bei der allerersten Session — danach merkt sich `lastSessionOperation`/`lastSessionRange` die zuletzt gewählte Konfiguration pro Profil.
+
+---
+
+## Iteration 8 decisions
+
+## «Gelöste Aufgaben» = Σ correct (kumuliert, nicht eindeutig)
+
+`solvedCount` ist die Summe aller `correct`-Werte über alle Aufgaben. Eine Aufgabe, die zehnmal richtig beantwortet wurde, zählt zehn. Diese Interpretation ist für Kinder motivierender («Du hast schon 347 Aufgaben richtig gelöst!») und einfach zu berechnen. Sie spiegelt echten Lernaufwand wider — wiederholtes Üben derselben Aufgabe zeigt Ausdauer und Fortschritt.
+
+## Nie versuchte Aufgaben gelten nicht als «schwächste»
+
+`weakestTasks` bevorzugt Aufgaben mit `attempts > 0` und tiefer Erfolgsquote. Nie versuchte Aufgaben sind pädagogisch «neu», nicht «schwach» — das Kind hat sie noch nicht kennengelernt. Erst versuchte, aber schlecht gelöste Aufgaben sind die relevanten Schwachstellen. Nie versuchte Aufgaben füllen nur auf, wenn weniger als 5 versuchte vorhanden sind.
+
+## Kein Chart-Framework für das Balkendiagramm
+
+5 Balken mit CSS-`width`-Prozentwerten sind trivial ohne externe Library. Eine Chart-Library (Chart.js, recharts etc.) würde das Single-File-HTML-Bundle massiv aufblähen und würde für einen so simplen Use Case keinen Mehrwert bringen. CSS-Übergänge (`transition: width 0.5s`) und `prefers-reduced-motion`-Support sind direkt umsetzbar.
+
+## `sessionsCount` umgesetzt (optional, ab Iter. 8)
+
+`ProfileStats.sessionsCount` wird optional persistiert via `registerSessionEnd()`. Keine Migration nötig: das Feld ist optional und wird on-demand initialisiert. `sessionsCount` wird nur inkrementiert wenn `taskCount > 0` — Sessions ohne bearbeitete Aufgaben (sofort «Beenden» geklickt) zählen nicht.
+
+## Storage-Version bleibt bei 5 (keine Migration in Iter. 8)
+
+Alle Statistik-Werte werden aus bereits vorhandenen Daten berechnet (`box`, `attempts`, `correct`, `totalPracticeMs`). Die optional ergänzten Felder (`sessionsCount`, `lastSessionAt`) sind abwärtskompatibel. Keine Versionserhöhung nötig.
+
+## Profil-Guard in PracticeSession via `watch(activeProfile, ...)`
+
+Falls das aktive Profil während einer laufenden Session `null` wird (z.B. paralleler Tab), bricht `PracticeSession` sauber ab und emittet `'exit'`. Vue's reaktives `watch` ist zuverlässiger als polling und erkennt Änderungen sofort. Die Guard-Logik prüft nur auf `null` und schützt damit gegen `null`-Schreibversuche ohne den normalen Session-Flow zu stören.

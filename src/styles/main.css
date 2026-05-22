@@ -26,6 +26,12 @@
   --viz-stroke: #ffffff;
   --viz-text: #1f2433;
   --viz-axis: #6b7280;
+  --stat-tile-bg: var(--color-surface);
+  --bar-color-1: #9ca3af;
+  --bar-color-2: #60a5fa;
+  --bar-color-3: #34d399;
+  --bar-color-4: #c0c5cf;
+  --bar-color-5: #f5c542;
   --color-silver: #c0c5cf;
   --color-silver-shine: #e7ebf2;
   --color-gold: #f5c542;

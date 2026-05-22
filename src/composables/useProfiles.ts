@@ -165,6 +165,21 @@ export function useProfiles() {
     Object.assign(profile.settings, partial);
   }
 
+  function registerSessionEnd(taskCount: number): void {
+    const profile = state.profiles.find((p) => p.id === state.activeProfileId);
+    if (!profile) {
+      console.warn('[Monsterknacker] registerSessionEnd: no active profile');
+      return;
+    }
+    if (!profile.stats) {
+      profile.stats = { totalPracticeMs: 0 };
+    }
+    if (taskCount > 0) {
+      profile.stats.sessionsCount = (profile.stats.sessionsCount ?? 0) + 1;
+    }
+    profile.stats.lastSessionAt = Date.now();
+  }
+
   return {
     profiles,
     activeProfile,
@@ -178,5 +193,6 @@ export function useProfiles() {
     addPracticeTimeMs,
     updateLastSessionConfig,
     updateSettings,
+    registerSessionEnd,
   };
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useTaskSelector } from '../composables/useTaskSelector';
 import { useProfiles } from '../composables/useProfiles';
 import { useTaskTimer } from '../composables/useTaskTimer';
@@ -17,7 +17,7 @@ const props = defineProps<{ config: SessionConfig }>();
 const emit = defineEmits<{ exit: [] }>();
 
 const selector = useTaskSelector();
-const { activeProfile, recordTaskAttempt, addPracticeTimeMs } = useProfiles();
+const { activeProfile, recordTaskAttempt, addPracticeTimeMs, registerSessionEnd } = useProfiles();
 const taskTimer = useTaskTimer();
 const sessionTimer = useSessionTimer();
 
@@ -33,6 +33,17 @@ const sessionDurationMs = ref(0);
 const showCorrectToast = ref(false);
 const attemptResult = ref<AttemptResult | null>(null);
 let lastSavedSessionMs = 0;
+
+// Guard: if active profile disappears (e.g. deleted in another tab), abort session.
+watch(activeProfile, (profile) => {
+  if (!profile && phase.value !== 'summary') {
+    if (props.config.mode === 'training') {
+      taskTimer.stop();
+      sessionTimer.stop();
+    }
+    emit('exit');
+  }
+});
 
 const sessionTimeDisplay = computed(() => formatMs(sessionTimer.elapsedMs.value));
 
@@ -124,6 +135,7 @@ function endSession() {
     trackPracticeTime();
     sessionDurationMs.value = sessionTimer.elapsedMs.value;
   }
+  registerSessionEnd(taskCount.value);
   phase.value = 'summary';
 }
 

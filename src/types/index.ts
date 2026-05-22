@@ -143,6 +143,26 @@ export interface ProfileSettings {
 export interface ProfileStats {
   /** Kumulierte Trainings-Übungszeit in Millisekunden. Freier Modus zählt NICHT mit. */
   totalPracticeMs: number;
+  /** Anzahl abgeschlossener Sessions (beide Modi). Optional, ab Iter. 8. */
+  sessionsCount?: number;
+  /** Unix-Timestamp (ms) der letzten beendeten Session. Optional. */
+  lastSessionAt?: number;
+}
+
+/** Eine Aufgabe mit aufbereiteten Kennzahlen für die Statistik-Ansicht. */
+export interface TaskStat {
+  taskId: string;
+  operation: Operation;
+  a: number;
+  b: number;
+  /** Fertiger Anzeige-String aus dem Task, z.B. «7 × 8» oder «56 ÷ 7». */
+  display: string;
+  box: LeitnerBox;
+  attempts: number;
+  correct: number;
+  monsterType: MonsterType;
+  /** correct / attempts, oder null wenn attempts === 0. */
+  successRate: number | null;
 }
 
 export interface Profile {

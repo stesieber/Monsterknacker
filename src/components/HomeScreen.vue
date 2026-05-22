@@ -11,6 +11,7 @@ const emit = defineEmits<{
   startPractice: [];
   showMonsters: [];
   showHeroes: [];
+  showStats: [];
 }>();
 
 const { activeProfile, clearActiveProfile } = useProfiles();
@@ -78,6 +79,10 @@ function switchProfile() {
           </div>
         </button>
       </div>
+
+      <button class="stats-btn" type="button" @click="emit('showStats')">
+        📊 Meine Fortschritte
+      </button>
 
       <button class="practice-btn" type="button" @click="emit('startPractice')">
         Üben starten
@@ -253,6 +258,27 @@ function switchProfile() {
 
 .split-sep {
   opacity: 0.5;
+}
+
+.stats-btn {
+  width: 100%;
+  max-width: 360px;
+  min-height: 48px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  transition: background 0.15s, transform 0.1s;
+}
+
+.stats-btn:hover {
+  background: #e8eaf0;
+}
+
+.stats-btn:active {
+  transform: scale(0.97);
 }
 
 .practice-btn {
