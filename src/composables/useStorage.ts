@@ -1,9 +1,10 @@
 import type { AppData } from '../types/index';
 import { SMALL_TABLE_TASK_IDS } from '../types/index';
 import { randomMonsterType } from '../utils/creature';
+import { allMulTaskIds, allDivTaskIds } from '../utils/task';
 
 const STORAGE_KEY = 'monsterknacker';
-const CURRENT_VERSION = 4;
+const CURRENT_VERSION = 5;
 
 const DEFAULT_APP_DATA: AppData = {
   version: CURRENT_VERSION,
@@ -55,11 +56,51 @@ function migrateV3toV4(data: any): any {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function migrateV4toV5(data: any): any {
+  for (const profile of data.profiles ?? []) {
+    if (!profile.tasks) profile.tasks = {};
+
+    // Bestehende IDs (Format AxB, b ∈ 1..9) bleiben unverändert.
+    // Ergänze fehlende Mul-Items (b=10..20).
+    for (const id of allMulTaskIds()) {
+      if (!profile.tasks[id]) {
+        profile.tasks[id] = {
+          attempts: 0,
+          correct: 0,
+          box: 1,
+          monsterType: randomMonsterType(),
+        };
+      }
+    }
+
+    // Ergänze alle Div-Items.
+    for (const id of allDivTaskIds()) {
+      if (!profile.tasks[id]) {
+        profile.tasks[id] = {
+          attempts: 0,
+          correct: 0,
+          box: 1,
+          monsterType: randomMonsterType(),
+        };
+      }
+    }
+
+    if (Object.keys(profile.tasks).length !== 360) {
+      console.warn(
+        `[Monsterknacker] migrateV4toV5: profile ${profile.id} hat ${Object.keys(profile.tasks).length} tasks (erwartet 360)`,
+      );
+    }
+  }
+  return data;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function migrate(data: any, fromVersion: number): AppData {
   let migrated = data;
   if (fromVersion < 2) migrated = migrateV1toV2(migrated);
   if (fromVersion < 3) migrated = migrateV2toV3(migrated);
   if (fromVersion < 4) migrated = migrateV3toV4(migrated);
+  if (fromVersion < 5) migrated = migrateV4toV5(migrated);
   migrated.version = CURRENT_VERSION;
   return migrated as AppData;
 }

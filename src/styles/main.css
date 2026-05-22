@@ -17,10 +17,12 @@
   --countdown-height: 8px;
   --radius: 16px;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --viz-color-a: #93c5fd;
-  --viz-color-b: #86efac;
-  --viz-color-c: #fde68a;
-  --viz-color-d: #fca5a5;
+  --viz-color-ff: #93c5fd;  /* 5×5    — Hellblau */
+  --viz-color-fr: #86efac;  /* 5×Rest — Hellgrün */
+  --viz-color-rf: #fde68a;  /* Rest×5 — Hellgelb */
+  --viz-color-rr: #fca5a5;  /* Rest×Rest — Hellkorall */
+  --viz-color-ft: #c4b5fd;  /* 5×10   — Lavendel */
+  --viz-color-rt: #fcd5ce;  /* Rest×10 — Pfirsich */
   --viz-stroke: #ffffff;
   --viz-text: #1f2433;
   --viz-axis: #6b7280;

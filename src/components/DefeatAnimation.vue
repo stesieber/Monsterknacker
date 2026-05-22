@@ -6,8 +6,8 @@ import MonsterIcon from './MonsterIcon.vue';
 const props = defineProps<{
   type: MonsterType;
   newKind: 'silver' | 'gold';
-  a: number;
-  b: number;
+  /** Anzeige-String, z.B. "7 × 8" oder "56 ÷ 7". */
+  display: string;
 }>();
 
 const emit = defineEmits<{ done: [] }>();
@@ -61,7 +61,7 @@ function onKey(e: KeyboardEvent) {
 
 const startKind = computed(() => props.newKind === 'gold' ? 'silver' : 'monster');
 
-const label = `${props.a} × ${props.b} ist jetzt ein ${props.newKind === 'gold' ? 'Goldheld! ✨' : 'Silberheld!'}`;
+const label = `${props.display} ist jetzt ein ${props.newKind === 'gold' ? 'Goldheld! ✨' : 'Silberheld!'}`;
 </script>
 
 <template>

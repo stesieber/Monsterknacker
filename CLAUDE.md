@@ -118,14 +118,21 @@ interface TaskState {
 type TaskMap = Record<string, TaskState>;
 
 interface Task {              // in src/types/index.ts, nicht persistiert
-  id: string;                // "AxB" z.B. "7x8"
-  a: number;                 // 1–9
-  b: number;                 // 1–9
-  answer: number;            // a * b
+  id: string;                // "AxB" (Mul) z.B. "7x8" | "D÷A" (Div) z.B. "56÷7"
+  operation: 'mul' | 'div';
+  a: number;                 // Mul: 1. Faktor 1–9 | Div: Divisor 1–9
+  b: number;                 // Mul: 2. Faktor 1–20 | Div: Quotient 1–20
+  answer: number;            // Mul: a*b | Div: b
+  display: string;           // z.B. "7 × 8" oder "56 ÷ 7"
 }
 ```
 
-**Aufgaben-ID-Format:** `"${a}x${b}"` — `7x8` und `8x7` sind **separate** Aufgaben.
+**Aufgaben-ID-Format:**
+- Multiplikation: `"${a}x${b}"` z.B. `7x8` — `7x8` und `8x7` sind separate Aufgaben.
+- Division: `"${dividend}÷${divisor}"` z.B. `56÷7` (gesucht: 8) — `56÷7` und `56÷8` sind separate Aufgaben.
+- Trennzeichen (`x` vs. `÷`) macht die Operation eindeutig erkennbar.
+
+**Pool-Grösse pro Profil:** 360 Items (180 Mul + 180 Div, jeweils a∈1..9, b∈1..20).
 
 ---
 
@@ -189,12 +196,12 @@ Lazy-initialisiert `profile.tasks` und den `TaskState` beim ersten Aufruf. Muss 
 | 2 | Aufgaben-Kernschleife, freie Übungs-Session (×, 1–9) | ✅ fertig |
 | 3 | Timer, Schwierigkeitsstufen, Trainingsmodus, ModeSelector | ✅ fertig |
 | 4 | Leitner-System, adaptive Aufgabenauswahl | ✅ fertig |
-| 5 | Timer, Schwierigkeitsstufen | 🔜 offen |
-| 6 | Monster-Design / Visualisierung | 🔜 offen |
-| 7 | Trainingsmodus | 🔜 offen |
-| 8 | Session-Zeit-Tracking, Stats | 🔜 offen |
+| 5 | Rechteck-Visualisierung (5er-Block-Partition) | ✅ fertig |
+| 6 | Monster-/Helden-Design, Defeat-Animation | ✅ fertig |
+| 7 | Grosses 1×1 (bis 9×20) + Division, Tabs Mul/Div | ✅ fertig |
+| 8 | Statistik-Screen, finale UX-Politur | 🔜 offen |
 
-**Noch nicht implementiert:** Division, grosses 1×1 (bis 12), Monster/Helden-Visualisierung, Sound.
+**Noch nicht implementiert:** Statistik-Screen, Sound.
 
 ---
 

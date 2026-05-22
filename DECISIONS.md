@@ -163,3 +163,63 @@ The animation has four phases triggered by `setTimeout` rather than listening to
 ## `ensureAllSmallTableTasks` adds `monsterType: 0` to synthesized tasks
 
 The function creates fallback TaskState objects used only for Leitner weight calculation (not persisted). Adding `monsterType: 0` satisfies the now-required field without a semantic meaning — the value is never read in selection logic.
+
+---
+
+## Iteration 7 decisions
+
+## Division als eigener Item-Pool, kein geteilter Leitner-State mit Multiplikation
+
+Eine Division wie `56 ÷ 7` hätte logisch denselben Leitner-State wie die Multiplikation `7 × 8` teilen können — das Kind „kann" ja im Kopf beides, wenn es eines kann. Wir wählen bewusst **separate States**: kognitiv ist „Wie viel ist 56 geteilt durch 7?" eine andere Abrufrichtung als „Wie viel ist 7 mal 8?". Empirisch klappt eine Richtung oft besser als die andere. Separate Items machen den Fortschritt in jeder Richtung sichtbar und vermeiden Übersprung-Effekte („Ich beherrsche `7×8`, also auch `56÷7`" — gilt nur theoretisch).
+
+## 360 Items pro Profil statt 180
+
+Konsequenz aus „Division als eigener Pool". Das verlangsamt die Monster-Counter-Reduktion, aber Tabs (Mul/Div) im Monsters-Screen halten den Fortschritt pro Operation sichtbar. Pädagogisch wichtiger als die schnelle Counter-Reduktion.
+
+## Kein Operations-Präfix in Aufgaben-IDs
+
+Die Spec erwähnt `m:7x8` als möglich. Wir wählen stattdessen: Mul-IDs bleiben `7x8`, Div-IDs nutzen `56÷7`. Das Trennzeichen (`x` vs. `÷`) ist bereits eindeutig. Vorteil: **bestehende IDs aus Iter. 1–6 bleiben unverändert gültig** — die Migration braucht keine Umbenennung, nur ergänzende Inserts.
+
+## Range „gross" inkludiert „klein"
+
+`taskIdsForConfig('mul', 'large')` enthält die 81 IDs aus `('mul', 'small')`. Wer „gross" wählt, will alles üben — würden wir nur b=10..20 zeigen, wäre die Auswahl willkürlich beschränkt. Intuitiver: gross = der ganze Pool, klein = nur einfacher Anteil.
+
+## Storage-Version `5` (statt `4` wie Spec sagt)
+
+Die Spec beschreibt eine Migration v3 → v4. In diesem Projekt war Iter. 6 bereits auf v4 (siehe „Storage version bumped to 4" in Iter. 6 oben). Die Iter.-7-Migration ist daher v4 → v5, um die bestehende Kette nicht zu überschreiben.
+
+## `useVisualization.ts` durch `utils/visualization.ts` ersetzt
+
+Der Hook-Wrapper hatte keinen reaktiven State, war also unnötiger Indirektion. Pure Funktion in `utils/` ist testbarer und ohne Vue-Overhead. `Visualization.vue` importiert `partition` und `decompose` direkt.
+
+## Color-Slots: A/B/C/D → FF/FR/RF/RR + FT/RT
+
+Mit dem neuen 10er-Block stieg die Anzahl möglicher Block-Typen von 4 auf 6. Statt willkürlicher Buchstaben (E, F, …) kodieren die zwei Zeichen jetzt die Segment-Magnitude: erstes Zeichen = a-Achse (F=5er, R=Rest, a hat nie 10er da a∈1..9), zweites = b-Achse (T=10er, F=5er, R=Rest). Lesbarer und im Code selbstdokumentierend.
+
+## Pool-Filter in `selectNextTask` via `poolIds`-Parameter, kein Default auf SMALL_TABLE_TASK_IDS in Produktion
+
+`selectNextTask` akzeptiert `poolIds?: readonly string[]`. Default fällt auf `SMALL_TABLE_TASK_IDS` zurück — nur für die bestehenden Tests aus Iter. 4. In Produktion ruft `useTaskSelector.next()` immer mit explizitem `poolIds` von `taskIdsForConfig()` auf. Vorteil: alte Tests laufen ohne Anpassung, neuer Code ist explizit.
+
+## Session-Repeats sind pool-gefiltert
+
+`selectNextTask` filtert fällige Repeats nach `poolIds`. Begründung: eine falsch beantwortete Mul-Aufgabe in einer früheren Session-Phase darf in einer neuen Div-Session nicht als Repeat erscheinen. Da Repeats sowieso nur innerhalb einer Session leben und `useTaskSelector.reset()` sie beim Start jeder Session leert, ist das Pool-Filter primär eine Defensive (z.B. falls jemand Pool-Switching innerhalb einer Session implementiert).
+
+## Tabs in Monsters-/Heroes-Screen, nicht zwei getrennte Screens
+
+Zwei Tabs (Mul/Div) statt zwei Routes — flacher Navigationsbaum, schnellerer Wechsel. Tab-State wird lokal im `ref` gehalten, **nicht persistiert**: der Default ist beim Öffnen die Operation mit den meisten Items (da liegt die Arbeit). Es gibt kein `lastTab` im Profil.
+
+## CreatureCard zeigt Operations-Symbol kompakt oben rechts
+
+Klein, dezent, mit Hintergrund-Pille. Hilft beim Tab-Wechsel die Orientierung zu behalten und vermeidet Verwechslungen bei ähnlich aussehenden Faktoren (z.B. Mul `7 × 8` vs. Div `56 ÷ 7` haben beide das Monster für „7 / 8").
+
+## DefeatAnimation erhält `display`-String statt `a`/`b`
+
+In Iter. 6 zeigte die Animation `${a} × ${b} ist jetzt ein Silberheld`. Für Div-Aufgaben wäre das verwirrend (`7 × 8` als Label bei einer `56 ÷ 7`-Aufgabe). Lösung: Component nimmt jetzt `display: string` — funktioniert für Mul, Div und potenzielle weitere Operationen ohne weitere Anpassung.
+
+## Visualisierung bei Division: identisches Rechteck wie Mul
+
+Für `56 ÷ 7` wird `partition(7, 8)` aufgerufen — dasselbe Bild wie für `7 × 8`. Pädagogisch wertvoll: Division wird als „gegebene Fläche, gesuchte Seitenlänge" sichtbar. Code-Vereinfachung: `Visualization.vue` braucht keine Operation-Kenntnis, nimmt nur `a` und `b`.
+
+## Default Operation/Range für neue Profile: `mul` + `small`
+
+Sanfter Einstieg ins kleine 1×1. Die Voreinstellung wirkt nur bei der allerersten Session — danach merkt sich `lastSessionOperation`/`lastSessionRange` die zuletzt gewählte Konfiguration pro Profil.

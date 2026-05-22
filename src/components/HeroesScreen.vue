@@ -1,14 +1,27 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
+import type { Operation } from '../types/index';
+import { OPERATION_LABELS, OPERATION_SYMBOL } from '../types/index';
 import { useMonsters } from '../composables/useMonsters';
 import CreatureCard from './CreatureCard.vue';
 
+const props = defineProps<{
+  initialOperation?: Operation;
+}>();
+
 const emit = defineEmits<{ back: [] }>();
 
-const { heroes, heroCount, silverCount, goldCount } = useMonsters();
+const { heroesFor, mulHeroCount, divHeroCount } = useMonsters();
 
-const goldHeroes = computed(() => heroes.value.filter((e) => e.kind === 'gold'));
-const silverHeroes = computed(() => heroes.value.filter((e) => e.kind === 'silver'));
+const activeTab = ref<Operation>(
+  props.initialOperation ?? (divHeroCount.value > mulHeroCount.value ? 'div' : 'mul'),
+);
+
+const tabHeroes = computed(() => heroesFor(activeTab.value));
+const tabGold = computed(() => tabHeroes.value.filter((e) => e.kind === 'gold'));
+const tabSilver = computed(() => tabHeroes.value.filter((e) => e.kind === 'silver'));
+const tabTotal = computed(() => tabHeroes.value.length);
+const overallTotal = computed(() => mulHeroCount.value + divHeroCount.value);
 </script>
 
 <template>
@@ -19,41 +32,73 @@ const silverHeroes = computed(() => heroes.value.filter((e) => e.kind === 'silve
       </button>
       <div class="screen-title-group">
         <h1 class="screen-title">Meine Helden</h1>
-        <p v-if="heroCount > 0" class="screen-subtitle">
-          {{ goldCount }} Gold · {{ silverCount }} Silber
+        <p v-if="tabTotal > 0" class="screen-subtitle">
+          {{ tabGold.length }} Gold · {{ tabSilver.length }} Silber
         </p>
       </div>
     </header>
 
+    <div class="tabs" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ 'is-active': activeTab === 'mul' }"
+        :aria-selected="activeTab === 'mul'"
+        @click="activeTab = 'mul'"
+      >
+        <span class="tab-symbol">{{ OPERATION_SYMBOL.mul }}</span>
+        <span class="tab-label">{{ OPERATION_LABELS.mul }}</span>
+        <span class="tab-count">{{ mulHeroCount }}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ 'is-active': activeTab === 'div' }"
+        :aria-selected="activeTab === 'div'"
+        @click="activeTab = 'div'"
+      >
+        <span class="tab-symbol">{{ OPERATION_SYMBOL.div }}</span>
+        <span class="tab-label">{{ OPERATION_LABELS.div }}</span>
+        <span class="tab-count">{{ divHeroCount }}</span>
+      </button>
+    </div>
+
     <main class="heroes-main">
-      <div v-if="heroCount === 0" class="empty-state">
+      <div v-if="overallTotal === 0" class="empty-state">
         <p class="empty-text">Du hast noch keine Helden —</p>
         <p class="empty-hint">übe weiter, dann schaffst du es!</p>
       </div>
 
+      <div v-else-if="tabTotal === 0" class="empty-state">
+        <p class="empty-text">Hier sind noch keine Helden.</p>
+        <p class="empty-hint">Wechsle den Tab oder übe weiter!</p>
+      </div>
+
       <template v-else>
-        <section v-if="goldHeroes.length > 0" class="hero-section hero-section--gold">
+        <section v-if="tabGold.length > 0" class="hero-section hero-section--gold">
           <div class="section-header">
             <span class="section-label">Goldhelden</span>
-            <span class="section-count">{{ goldCount }}</span>
+            <span class="section-count">{{ tabGold.length }}</span>
           </div>
           <div class="creature-grid">
             <CreatureCard
-              v-for="entry in goldHeroes"
+              v-for="entry in tabGold"
               :key="entry.taskId"
               :entry="entry"
             />
           </div>
         </section>
 
-        <section v-if="silverHeroes.length > 0" class="hero-section hero-section--silver">
+        <section v-if="tabSilver.length > 0" class="hero-section hero-section--silver">
           <div class="section-header">
             <span class="section-label">Silberhelden</span>
-            <span class="section-count">{{ silverCount }}</span>
+            <span class="section-count">{{ tabSilver.length }}</span>
           </div>
           <div class="creature-grid">
             <CreatureCard
-              v-for="entry in silverHeroes"
+              v-for="entry in tabSilver"
               :key="entry.taskId"
               :entry="entry"
             />
@@ -118,9 +163,57 @@ const silverHeroes = computed(() => heroes.value.filter((e) => e.kind === 'silve
   margin-top: 2px;
 }
 
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tab {
+  flex: 1;
+  min-height: 56px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tab.is-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.tab-symbol {
+  font-size: 1.2rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.tab-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.08);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.tab.is-active .tab-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
 .heroes-main {
   flex: 1;
-  padding-top: 8px;
 }
 
 .empty-state {
@@ -188,6 +281,12 @@ const silverHeroes = computed(() => heroes.value.filter((e) => e.kind === 'silve
 @media (min-width: 600px) {
   .creature-grid {
     grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  }
+}
+
+@media (max-width: 400px) {
+  .tab-label {
+    display: none;
   }
 }
 </style>

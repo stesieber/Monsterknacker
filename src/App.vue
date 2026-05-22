@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useProfiles } from './composables/useProfiles';
-import type { SessionConfig } from './types/index';
+import { useMonsters } from './composables/useMonsters';
+import type { Operation, SessionConfig } from './types/index';
 import ProfileSelector from './components/ProfileSelector.vue';
 import HomeScreen from './components/HomeScreen.vue';
 import ModeSelector from './components/ModeSelector.vue';
@@ -13,7 +14,15 @@ type Screen = 'profile-selector' | 'home' | 'mode-selector' | 'practice' | 'mons
 
 const currentScreen = ref<Screen>('profile-selector');
 const { activeProfile } = useProfiles();
-const sessionConfig = ref<SessionConfig>({ mode: 'free' });
+const { mulMonsterCount, divMonsterCount, mulHeroCount, divHeroCount } = useMonsters();
+const sessionConfig = ref<SessionConfig>({ mode: 'free', operation: 'mul', range: 'small' });
+
+const monstersInitialOp = computed<Operation>(() =>
+  divMonsterCount.value > mulMonsterCount.value ? 'div' : 'mul'
+);
+const heroesInitialOp = computed<Operation>(() =>
+  divHeroCount.value > mulHeroCount.value ? 'div' : 'mul'
+);
 
 function goToModeSelector() {
   if (!activeProfile.value) return;
@@ -49,10 +58,12 @@ function goToHome() {
   />
   <MonstersScreen
     v-else-if="currentScreen === 'monsters'"
+    :initial-operation="monstersInitialOp"
     @back="currentScreen = 'home'"
   />
   <HeroesScreen
     v-else-if="currentScreen === 'heroes'"
+    :initial-operation="heroesInitialOp"
     @back="currentScreen = 'home'"
   />
   <PracticeSession

@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import type { SessionMode, Difficulty, SessionConfig } from '../types/index';
-import { DIFFICULTY_LABELS, DIFFICULTY_TIMEOUT_MS } from '../types/index';
+import type { SessionMode, Difficulty, SessionConfig, Operation, Range } from '../types/index';
+import {
+  DIFFICULTY_LABELS,
+  DIFFICULTY_TIMEOUT_MS,
+  OPERATION_LABELS,
+  OPERATION_SYMBOL,
+} from '../types/index';
 import { useProfiles } from '../composables/useProfiles';
 
 const emit = defineEmits<{
@@ -13,12 +18,15 @@ const { activeProfile, updateLastSessionConfig } = useProfiles();
 
 const selectedMode = ref<SessionMode | null>(null);
 const selectedDifficulty = ref<Difficulty | null>(null);
+const selectedOperation = ref<Operation>('mul');
+const selectedRange = ref<Range>('small');
 
 const showDifficulty = computed(() => selectedMode.value === 'training');
 
 const canStart = computed(() => {
   if (!selectedMode.value) return false;
   if (selectedMode.value === 'training' && !selectedDifficulty.value) return false;
+  if (!selectedOperation.value || !selectedRange.value) return false;
   return true;
 });
 
@@ -26,6 +34,16 @@ const difficulties: { value: Difficulty; timeSeconds: number; description: strin
   { value: 'easy', timeSeconds: DIFFICULTY_TIMEOUT_MS.easy / 1000, description: 'Viel Zeit zum Überlegen' },
   { value: 'medium', timeSeconds: DIFFICULTY_TIMEOUT_MS.medium / 1000, description: 'Zügiges Tempo' },
   { value: 'expert', timeSeconds: DIFFICULTY_TIMEOUT_MS.expert / 1000, description: 'Schneller Abruf' },
+];
+
+const operations: { value: Operation; label: string }[] = [
+  { value: 'mul', label: `${OPERATION_LABELS.mul} ${OPERATION_SYMBOL.mul}` },
+  { value: 'div', label: `${OPERATION_LABELS.div} ${OPERATION_SYMBOL.div}` },
+];
+
+const ranges: { value: Range; label: string }[] = [
+  { value: 'small', label: 'Klein (bis 9)' },
+  { value: 'large', label: 'Gross (bis 20)' },
 ];
 
 onMounted(() => {
@@ -36,6 +54,12 @@ onMounted(() => {
       selectedDifficulty.value = settings.lastSessionDifficulty;
     }
   }
+  if (settings?.lastSessionOperation) {
+    selectedOperation.value = settings.lastSessionOperation;
+  }
+  if (settings?.lastSessionRange) {
+    selectedRange.value = settings.lastSessionRange;
+  }
 });
 
 function startSession() {
@@ -43,8 +67,10 @@ function startSession() {
   const config: SessionConfig = {
     mode: selectedMode.value,
     difficulty: selectedMode.value === 'training' ? (selectedDifficulty.value ?? undefined) : undefined,
+    operation: selectedOperation.value,
+    range: selectedRange.value,
   };
-  updateLastSessionConfig(config.mode, config.difficulty);
+  updateLastSessionConfig(config.mode, config.difficulty, config.operation, config.range);
   emit('start', config);
 }
 </script>
@@ -95,6 +121,38 @@ function startSession() {
         </div>
       </div>
 
+      <section class="compact-section">
+        <h2 class="compact-section-title">Operation</h2>
+        <div class="compact-cards">
+          <button
+            v-for="op in operations"
+            :key="op.value"
+            class="compact-card"
+            :class="{ 'is-selected': selectedOperation === op.value }"
+            type="button"
+            @click="selectedOperation = op.value"
+          >
+            {{ op.label }}
+          </button>
+        </div>
+      </section>
+
+      <section class="compact-section">
+        <h2 class="compact-section-title">Umfang</h2>
+        <div class="compact-cards">
+          <button
+            v-for="r in ranges"
+            :key="r.value"
+            class="compact-card"
+            :class="{ 'is-selected': selectedRange === r.value }"
+            type="button"
+            @click="selectedRange = r.value"
+          >
+            {{ r.label }}
+          </button>
+        </div>
+      </section>
+
       <button
         class="start-btn"
         type="button"
@@ -121,7 +179,7 @@ function startSession() {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .back-btn {
@@ -150,7 +208,7 @@ function startSession() {
 .mode-selector-main {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
 .mode-cards {
@@ -243,7 +301,49 @@ function startSession() {
   opacity: 0.8;
 }
 
+/* Compact sections for Operation and Range. */
+.compact-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.compact-section-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.compact-cards {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.compact-card {
+  flex: 1;
+  min-height: 60px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  border: 2px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  padding: 8px 12px;
+  text-align: center;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.compact-card.is-selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
 .start-btn {
+  margin-top: 8px;
   width: 100%;
   min-height: 64px;
   border-radius: var(--radius);

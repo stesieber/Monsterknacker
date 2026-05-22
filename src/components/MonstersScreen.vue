@@ -1,10 +1,26 @@
 <script setup lang="ts">
+import { ref, computed } from 'vue';
+import type { Operation } from '../types/index';
+import { OPERATION_LABELS, OPERATION_SYMBOL } from '../types/index';
 import { useMonsters } from '../composables/useMonsters';
 import CreatureCard from './CreatureCard.vue';
 
+const props = defineProps<{
+  initialOperation?: Operation;
+}>();
+
 const emit = defineEmits<{ back: [] }>();
 
-const { monsterCount, monstersByBox } = useMonsters();
+const { mulMonsterCount, divMonsterCount, monstersByBoxFor } = useMonsters();
+
+const activeTab = ref<Operation>(
+  props.initialOperation ?? (divMonsterCount.value > mulMonsterCount.value ? 'div' : 'mul')
+);
+
+const monstersByBox = computed(() => monstersByBoxFor(activeTab.value));
+const totalForTab = computed(
+  () => monstersByBox.value[1].length + monstersByBox.value[2].length + monstersByBox.value[3].length,
+);
 
 const sections = [
   {
@@ -36,15 +52,48 @@ const sections = [
       </button>
       <div class="screen-title-group">
         <h1 class="screen-title">Meine Monster</h1>
-        <p v-if="monsterCount > 0" class="screen-subtitle">{{ monsterCount }} Monster zu besiegen</p>
+        <p v-if="totalForTab > 0" class="screen-subtitle">{{ totalForTab }} Monster zu besiegen</p>
       </div>
     </header>
 
+    <div class="tabs" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ 'is-active': activeTab === 'mul' }"
+        :aria-selected="activeTab === 'mul'"
+        @click="activeTab = 'mul'"
+      >
+        <span class="tab-symbol">{{ OPERATION_SYMBOL.mul }}</span>
+        <span class="tab-label">{{ OPERATION_LABELS.mul }}</span>
+        <span class="tab-count">{{ mulMonsterCount }}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        :class="{ 'is-active': activeTab === 'div' }"
+        :aria-selected="activeTab === 'div'"
+        @click="activeTab = 'div'"
+      >
+        <span class="tab-symbol">{{ OPERATION_SYMBOL.div }}</span>
+        <span class="tab-label">{{ OPERATION_LABELS.div }}</span>
+        <span class="tab-count">{{ divMonsterCount }}</span>
+      </button>
+    </div>
+
     <main class="monsters-main">
-      <div v-if="monsterCount === 0" class="empty-state">
+      <div v-if="mulMonsterCount === 0 && divMonsterCount === 0" class="empty-state">
         <p class="empty-icon">🎉</p>
         <p class="empty-text">Alle besiegt!</p>
         <p class="empty-hint">Schau bei deinen Helden vorbei.</p>
+      </div>
+
+      <div v-else-if="totalForTab === 0" class="empty-state">
+        <p class="empty-icon">🎉</p>
+        <p class="empty-text">Hier sind keine Monster mehr!</p>
+        <p class="empty-hint">Wechsle den Tab oder schau bei deinen Helden vorbei.</p>
       </div>
 
       <template v-else>
@@ -127,9 +176,57 @@ const sections = [
   margin-top: 2px;
 }
 
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tab {
+  flex: 1;
+  min-height: 56px;
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  border: 2px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tab.is-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.tab-symbol {
+  font-size: 1.2rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.tab-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.08);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.tab.is-active .tab-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
 .monsters-main {
   flex: 1;
-  padding-top: 8px;
 }
 
 .empty-state {
@@ -199,6 +296,12 @@ const sections = [
 @media (min-width: 600px) {
   .creature-grid {
     grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  }
+}
+
+@media (max-width: 400px) {
+  .tab-label {
+    display: none;
   }
 }
 </style>

@@ -6,7 +6,7 @@ defineProps<{ task: Task }>();
 
 <template>
   <div class="task-display" aria-live="polite">
-    <span class="task-operands">{{ task.a }} × {{ task.b }} =&nbsp;</span><span class="task-question">?</span>
+    <span class="task-operands">{{ task.display }} =&nbsp;</span><span class="task-question">?</span>
   </div>
 </template>
 

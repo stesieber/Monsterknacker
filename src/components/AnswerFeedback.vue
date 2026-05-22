@@ -39,6 +39,9 @@ onMounted(() => {
     setTimeout(() => nextBtnRef.value?.focus({ preventScroll: true }), 0);
   }
 });
+
+/** Vollständige Gleichung als String, z.B. "7 × 8 = 56" oder "56 ÷ 7 = 8". */
+const fullEquation = computed(() => `${props.task.display} = ${props.task.answer}`);
 </script>
 
 <template>
@@ -46,8 +49,7 @@ onMounted(() => {
     v-if="showDefeat && attemptResult"
     :type="monsterType"
     :new-kind="(attemptResult.newKind as 'silver' | 'gold')"
-    :a="task.a"
-    :b="task.b"
+    :display="task.display"
     @done="onDefeatDone"
   />
 
@@ -59,12 +61,12 @@ onMounted(() => {
     </p>
 
     <p class="feedback-equation">
-      {{ props.task.a }} × {{ props.task.b }} =
+      {{ props.task.display }} =
       <strong class="feedback-answer">{{ props.task.answer }}</strong>
     </p>
 
     <p v-if="isTimeout" class="feedback-user-answer">
-      Die Antwort wäre: <strong class="feedback-answer">{{ props.task.a }} × {{ props.task.b }} = {{ props.task.answer }}</strong>
+      Die Antwort wäre: <strong class="feedback-answer">{{ fullEquation }}</strong>
     </p>
 
     <p v-else-if="!isCorrect" class="feedback-user-answer">

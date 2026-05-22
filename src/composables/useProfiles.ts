@@ -6,13 +6,16 @@ import type {
   ProfileStats,
   SessionMode,
   Difficulty,
+  Operation,
+  Range,
   LeitnerBox,
   AttemptResult,
 } from '../types/index';
-import { AVAILABLE_EMOJIS, SMALL_TABLE_TASK_IDS } from '../types/index';
+import { AVAILABLE_EMOJIS } from '../types/index';
 import type { TaskMap } from '../types/index';
 import { loadAppData, saveAppData } from './useStorage';
 import { nextBox } from '../utils/leitner';
+import { allMulTaskIds, allDivTaskIds } from '../utils/task';
 import { randomMonsterType, kindForBox } from '../utils/creature';
 
 // Module-level singleton state shared across all callers
@@ -24,7 +27,12 @@ function initializeProfileTasks(profileId: string): void {
   const profile = state.profiles.find((p) => p.id === profileId);
   if (!profile) return;
   if (!profile.tasks) profile.tasks = {} as TaskMap;
-  for (const id of SMALL_TABLE_TASK_IDS) {
+  for (const id of allMulTaskIds()) {
+    if (!profile.tasks[id]) {
+      profile.tasks[id] = { attempts: 0, correct: 0, box: 1, monsterType: randomMonsterType() };
+    }
+  }
+  for (const id of allDivTaskIds()) {
     if (!profile.tasks[id]) {
       profile.tasks[id] = { attempts: 0, correct: 0, box: 1, monsterType: randomMonsterType() };
     }
@@ -131,7 +139,12 @@ export function useProfiles() {
     profile.stats.totalPracticeMs += deltaMs;
   }
 
-  function updateLastSessionConfig(mode: SessionMode, difficulty?: Difficulty): void {
+  function updateLastSessionConfig(
+    mode: SessionMode,
+    difficulty: Difficulty | undefined,
+    operation: Operation,
+    range: Range,
+  ): void {
     const profile = state.profiles.find((p) => p.id === state.activeProfileId);
     if (!profile) return;
     if (!profile.settings) {
@@ -139,6 +152,8 @@ export function useProfiles() {
     }
     profile.settings.lastSessionMode = mode;
     profile.settings.lastSessionDifficulty = difficulty;
+    profile.settings.lastSessionOperation = operation;
+    profile.settings.lastSessionRange = range;
   }
 
   function updateSettings(id: string, partial: Partial<ProfileSettings>): void {
