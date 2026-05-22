@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { useProfiles } from '../composables/useProfiles';
 import { useMonsters } from '../composables/useMonsters';
+import { OPERATION_SYMBOL } from '../types/index';
 import ProfileEditDialog from './ProfileEditDialog.vue';
 import MonsterSvg1 from './MonsterSvg1.vue';
 
@@ -13,7 +14,14 @@ const emit = defineEmits<{
 }>();
 
 const { activeProfile, clearActiveProfile } = useProfiles();
-const { monsterCount, heroCount } = useMonsters();
+const {
+  monsterCount,
+  heroCount,
+  mulMonsterCount,
+  divMonsterCount,
+  mulHeroCount,
+  divHeroCount,
+} = useMonsters();
 const showSettings = ref(false);
 
 function switchProfile() {
@@ -47,6 +55,11 @@ function switchProfile() {
           <div class="tile-content">
             <span class="tile-count">{{ monsterCount }}</span>
             <span class="tile-label">{{ monsterCount === 0 ? 'Alles besiegt!' : 'Monster' }}</span>
+            <span v-if="monsterCount > 0" class="tile-split">
+              <span class="split-part">{{ OPERATION_SYMBOL.mul }} {{ mulMonsterCount }}</span>
+              <span class="split-sep">·</span>
+              <span class="split-part">{{ OPERATION_SYMBOL.div }} {{ divMonsterCount }}</span>
+            </span>
           </div>
         </button>
 
@@ -57,6 +70,11 @@ function switchProfile() {
           <div class="tile-content">
             <span class="tile-count">{{ heroCount }}</span>
             <span class="tile-label">{{ heroCount === 0 ? 'Los geht\'s!' : 'Helden' }}</span>
+            <span v-if="heroCount > 0" class="tile-split">
+              <span class="split-part">{{ OPERATION_SYMBOL.mul }} {{ mulHeroCount }}</span>
+              <span class="split-sep">·</span>
+              <span class="split-part">{{ OPERATION_SYMBOL.div }} {{ divHeroCount }}</span>
+            </span>
           </div>
         </button>
       </div>
@@ -168,7 +186,7 @@ function switchProfile() {
 
 .creature-tile {
   flex: 1;
-  min-height: 88px;
+  min-height: 100px;
   border-radius: var(--radius);
   background: var(--color-surface);
   box-shadow: var(--shadow);
@@ -203,6 +221,7 @@ function switchProfile() {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .tile-count {
@@ -216,6 +235,24 @@ function switchProfile() {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--color-text-muted);
+}
+
+.tile-split {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.split-part {
+  white-space: nowrap;
+}
+
+.split-sep {
+  opacity: 0.5;
 }
 
 .practice-btn {

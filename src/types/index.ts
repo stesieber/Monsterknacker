@@ -10,6 +10,30 @@ export type CreatureKind = 'monster' | 'silver' | 'gold';
 /** Anzahl verfügbarer Monster-Designs. */
 export const MONSTER_TYPE_COUNT = 3;
 
+/** Mathematische Operation einer Aufgabe. */
+export type Operation = 'mul' | 'div';
+
+/** Übungs-Umfang. */
+export type Range = 'small' | 'large';
+
+/** Anzeigenamen Operation. */
+export const OPERATION_LABELS: Record<Operation, string> = {
+  mul: 'Multiplikation',
+  div: 'Division',
+};
+
+/** Operations-Symbol für die UI. */
+export const OPERATION_SYMBOL: Record<Operation, string> = {
+  mul: '×',
+  div: '÷',
+};
+
+/** Anzeigenamen Umfang. */
+export const RANGE_LABELS: Record<Range, string> = {
+  small: '1×1 klein (bis 9)',
+  large: '1×1 gross (bis 20)',
+};
+
 export interface TaskState {
   attempts: number;
   correct: number;
@@ -28,12 +52,19 @@ export interface AttemptResult {
 
 export type TaskMap = Record<string, TaskState>;
 
-/** Eine Multiplikations-Aufgabe (nicht persistiert). */
+/** Eine Aufgabe (Mul oder Div). Nicht persistiert. */
 export interface Task {
+  /** Eindeutige ID, z.B. "7x8" (Mul) oder "56÷7" (Div). */
   id: string;
+  operation: Operation;
+  /** Bei Mul: erster Faktor (1..9). Bei Div: Divisor (1..9). */
   a: number;
+  /** Bei Mul: zweiter Faktor (1..20). Bei Div: Quotient (1..20). */
   b: number;
+  /** Korrekte Antwort. Mul: a*b. Div: b (der gesuchte Faktor). */
   answer: number;
+  /** Anzeige-String, z.B. "7 × 8" oder "56 ÷ 7". */
+  display: string;
 }
 
 /** Eintrag in der Session-internen Wiederholungs-Queue. */
@@ -94,6 +125,10 @@ export interface SessionConfig {
   mode: SessionMode;
   /** Nur gesetzt wenn mode === 'training'. */
   difficulty?: Difficulty;
+  /** Pflichtfeld seit Iter. 7. */
+  operation: Operation;
+  /** Pflichtfeld seit Iter. 7. */
+  range: Range;
 }
 
 export interface ProfileSettings {
@@ -101,6 +136,8 @@ export interface ProfileSettings {
   /** Letzte gewählte Konfiguration — für vorausgefüllten ModeSelector. */
   lastSessionMode?: SessionMode;
   lastSessionDifficulty?: Difficulty;
+  lastSessionOperation?: Operation;
+  lastSessionRange?: Range;
 }
 
 export interface ProfileStats {
@@ -118,13 +155,18 @@ export interface Profile {
   stats?: ProfileStats;
 }
 
+/** Farb-Slot eines Blocks in der Rechteck-Visualisierung.
+ *  Erstes Zeichen: a-Achse (F=5er, R=Rest, a ∈ 1..9 hat keinen 10er).
+ *  Zweites Zeichen: b-Achse (T=10er, F=5er, R=Rest). */
+export type ColorSlot = 'FF' | 'FR' | 'RF' | 'RR' | 'FT' | 'RT';
+
 /** A colored block in the rectangle area model. */
 export interface VisualizationBlock {
   x: number;
   y: number;
   width: number;
   height: number;
-  colorSlot: 'A' | 'B' | 'C' | 'D';
+  colorSlot: ColorSlot;
   label: number;
 }
 

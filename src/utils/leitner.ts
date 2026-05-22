@@ -13,7 +13,8 @@ export function nextBox(currentBox: LeitnerBox, wasCorrect: boolean): LeitnerBox
   return Math.min(5, currentBox + 1) as LeitnerBox;
 }
 
-/** Stellt sicher, dass für jede der 81 Aufgaben ein TaskState existiert (Box 1 default). */
+/** Stellt sicher, dass für jede der 81 Aufgaben ein TaskState existiert (Box 1 default).
+ *  Wird für Tests / Default-Fallback genutzt. */
 export function ensureAllSmallTableTasks(tasks: Record<string, TaskState>): Record<string, TaskState> {
   const result: Record<string, TaskState> = { ...tasks };
   for (const id of SMALL_TABLE_TASK_IDS) {
@@ -29,25 +30,34 @@ export function ensureAllSmallTableTasks(tasks: Record<string, TaskState>): Reco
 }
 
 /**
- * Wählt die nächste Aufgabe adaptiv.
+ * Wählt die nächste Aufgabe adaptiv aus einem definierten Pool.
  *
  * Priorität:
- *   1. Fällige Session-Repeats (dueAtTaskNum <= currentTaskNum) — älteste zuerst
- *   2. Gewichtete Leitner-Auswahl (Box 1 dominiert)
+ *   1. Fällige Session-Repeats (dueAtTaskNum <= currentTaskNum) — älteste zuerst,
+ *      nur Repeats mit taskId im aktuellen Pool werden berücksichtigt
+ *   2. Gewichtete Leitner-Auswahl innerhalb des Pools (Box 1 dominiert)
  *
  * Vermeidet previousId. Achtung: mutiert sessionRepeats NICHT.
  */
 export function selectNextTask(args: {
   profile: Profile;
+  poolIds?: readonly string[];
   previousId?: string;
   currentTaskNum: number;
   sessionRepeats: SessionRepeat[];
 }): { task: Task; fromRepeatQueue: boolean; repeatEntry?: SessionRepeat } {
   const { profile, previousId, currentTaskNum, sessionRepeats } = args;
+  const poolIds = args.poolIds ?? SMALL_TABLE_TASK_IDS;
 
-  // 1. Check for due session repeats, sorted oldest first
+  if (poolIds.length === 0) {
+    throw new Error('selectNextTask: poolIds darf nicht leer sein');
+  }
+
+  const poolSet = new Set(poolIds);
+
+  // 1. Check for due session repeats, sorted oldest first; pool-gefiltert.
   const dueRepeats = sessionRepeats
-    .filter((r) => r.dueAtTaskNum <= currentTaskNum)
+    .filter((r) => poolSet.has(r.taskId) && r.dueAtTaskNum <= currentTaskNum)
     .sort((a, b) => a.dueAtTaskNum - b.dueAtTaskNum);
 
   if (dueRepeats.length > 0) {
@@ -62,10 +72,10 @@ export function selectNextTask(args: {
     // All due repeats equal previousId → fall through to Leitner
   }
 
-  // 2. Leitner weighted selection
-  const tasks = ensureAllSmallTableTasks(profile.tasks ?? {});
+  // 2. Leitner weighted selection within the pool
+  const tasks = profile.tasks ?? {};
 
-  const weights = SMALL_TABLE_TASK_IDS.map((id) => {
+  const weights = poolIds.map((id) => {
     if (id === previousId) return 0;
     const state = tasks[id];
     const box = state?.box ?? 1;
@@ -76,26 +86,26 @@ export function selectNextTask(args: {
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
 
   if (totalWeight === 0) {
-    // Edge case: only one task and it equals previousId
-    return { task: parseTaskId(previousId!), fromRepeatQueue: false };
+    // Edge case: only one task in pool and it equals previousId
+    return { task: parseTaskId(previousId ?? poolIds[0]), fromRepeatQueue: false };
   }
 
   let rand = Math.random() * totalWeight;
-  for (let i = 0; i < SMALL_TABLE_TASK_IDS.length; i++) {
+  for (let i = 0; i < poolIds.length; i++) {
     rand -= weights[i];
     if (rand <= 0) {
-      return { task: parseTaskId(SMALL_TABLE_TASK_IDS[i]), fromRepeatQueue: false };
+      return { task: parseTaskId(poolIds[i]), fromRepeatQueue: false };
     }
   }
 
   // Floating-point fallback: return last task with non-zero weight
-  for (let i = SMALL_TABLE_TASK_IDS.length - 1; i >= 0; i--) {
+  for (let i = poolIds.length - 1; i >= 0; i--) {
     if (weights[i] > 0) {
-      return { task: parseTaskId(SMALL_TABLE_TASK_IDS[i]), fromRepeatQueue: false };
+      return { task: parseTaskId(poolIds[i]), fromRepeatQueue: false };
     }
   }
 
-  return { task: parseTaskId(SMALL_TABLE_TASK_IDS[0]), fromRepeatQueue: false };
+  return { task: parseTaskId(poolIds[0]), fromRepeatQueue: false };
 }
 
 /**

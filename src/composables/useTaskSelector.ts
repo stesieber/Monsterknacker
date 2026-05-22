@@ -1,6 +1,7 @@
 import { ref, readonly, computed, type Ref } from 'vue';
-import type { Profile, SessionRepeat, Task } from '../types/index';
+import type { Profile, SessionConfig, SessionRepeat, Task } from '../types/index';
 import { selectNextTask, updateSessionRepeats } from '../utils/leitner';
+import { taskIdsForConfig } from '../utils/task';
 
 export function useTaskSelector() {
   const sessionRepeats: Ref<SessionRepeat[]> = ref([]);
@@ -13,9 +14,11 @@ export function useTaskSelector() {
     taskCount.value = 0;
   }
 
-  function next(profile: Profile): Task {
+  function next(profile: Profile, config: SessionConfig): Task {
+    const poolIds = taskIdsForConfig(config.operation, config.range);
     const result = selectNextTask({
       profile,
+      poolIds,
       previousId: previousTaskId.value,
       currentTaskNum: taskCount.value,
       sessionRepeats: sessionRepeats.value,

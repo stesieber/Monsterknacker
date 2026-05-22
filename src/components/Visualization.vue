@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useVisualization } from '../composables/useVisualization';
+import { partition, decompose } from '../utils/visualization';
+import type { ColorSlot } from '../types/index';
 
 const props = defineProps<{ a: number; b: number }>();
-
-const { partition } = useVisualization();
 
 const UNIT = 30;
 const PAD_LEFT = 32;
@@ -18,30 +17,34 @@ const viewBox = computed(
   () => `0 0 ${PAD_LEFT + props.a * UNIT + PAD_RIGHT} ${PAD_TOP + props.b * UNIT + PAD_BOTTOM}`
 );
 
-const COLOR_MAP: Record<string, string> = {
-  A: 'var(--viz-color-a)',
-  B: 'var(--viz-color-b)',
-  C: 'var(--viz-color-c)',
-  D: 'var(--viz-color-d)',
+const COLOR_MAP: Record<ColorSlot, string> = {
+  FF: 'var(--viz-color-ff)',
+  FR: 'var(--viz-color-fr)',
+  RF: 'var(--viz-color-rf)',
+  RR: 'var(--viz-color-rr)',
+  FT: 'var(--viz-color-ft)',
+  RT: 'var(--viz-color-rt)',
 };
 
 /** Axis label segments for the horizontal (a) axis. */
 const axisLabelsA = computed(() => {
   const segs: Array<{ value: number; x: number; width: number }> = [];
-  const aFives = props.a >= 5 ? 5 : 0;
-  const aRest = props.a >= 5 ? props.a - 5 : props.a;
-  if (aFives > 0) segs.push({ value: aFives, x: 0, width: aFives });
-  if (aRest > 0) segs.push({ value: aRest, x: aFives, width: aRest });
+  let offset = 0;
+  for (const s of decompose(props.a)) {
+    segs.push({ value: s, x: offset, width: s });
+    offset += s;
+  }
   return segs;
 });
 
 /** Axis label segments for the vertical (b) axis. */
 const axisLabelsB = computed(() => {
   const segs: Array<{ value: number; y: number; height: number }> = [];
-  const bFives = props.b >= 5 ? 5 : 0;
-  const bRest = props.b >= 5 ? props.b - 5 : props.b;
-  if (bFives > 0) segs.push({ value: bFives, y: 0, height: bFives });
-  if (bRest > 0) segs.push({ value: bRest, y: bFives, height: bRest });
+  let offset = 0;
+  for (const s of decompose(props.b)) {
+    segs.push({ value: s, y: offset, height: s });
+    offset += s;
+  }
   return segs;
 });
 
@@ -63,20 +66,23 @@ const gridLines = computed(() => {
   }
   return lines;
 });
+
+const isTall = computed(() => props.b > 10);
 </script>
 
 <template>
-  <div class="viz-container">
+  <div class="viz-container" :class="{ 'viz-container--tall': isTall }">
     <svg
       :viewBox="viewBox"
       role="img"
       :aria-label="`Rechteck-Visualisierung von ${a} mal ${b}`"
+      preserveAspectRatio="xMidYMid meet"
       xmlns="http://www.w3.org/2000/svg"
     >
       <!-- Colored blocks -->
       <rect
-        v-for="bl in blocks"
-        :key="bl.colorSlot"
+        v-for="(bl, i) in blocks"
+        :key="`bl-${i}`"
         :x="PAD_LEFT + bl.x * UNIT"
         :y="PAD_TOP + bl.y * UNIT"
         :width="bl.width * UNIT"
@@ -102,8 +108,8 @@ const gridLines = computed(() => {
 
       <!-- Sub-product labels centered in each block -->
       <text
-        v-for="bl in blocks"
-        :key="`lbl-${bl.colorSlot}`"
+        v-for="(bl, i) in blocks"
+        :key="`lbl-${i}`"
         :x="PAD_LEFT + bl.x * UNIT + (bl.width * UNIT) / 2"
         :y="PAD_TOP + bl.y * UNIT + (bl.height * UNIT) / 2"
         text-anchor="middle"
@@ -148,12 +154,26 @@ const gridLines = computed(() => {
   max-width: 360px;
   margin: 1rem auto;
   animation: viz-fade-in 0.2s ease;
+  display: flex;
+  justify-content: center;
+}
+
+/* Bei grossen Faktoren (b > 10) das SVG begrenzen,
+   damit es auf einem 375×667-Viewport ohne Overflow passt.
+   preserveAspectRatio sorgt für proportionale Skalierung ohne Verzerrung. */
+.viz-container--tall {
+  max-width: 320px;
 }
 
 .viz-container svg {
   width: 100%;
   height: auto;
+  max-height: 60vh;
   display: block;
+}
+
+.viz-container--tall svg {
+  max-height: min(60vh, 360px);
 }
 
 @keyframes viz-fade-in {

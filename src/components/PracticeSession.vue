@@ -48,7 +48,7 @@ function syncVisualViewport() {
 
 onMounted(() => {
   selector.reset();
-  currentTask.value = selector.next(activeProfile.value!);
+  currentTask.value = selector.next(activeProfile.value!, props.config);
   if (props.config.mode === 'training') {
     sessionTimer.start();
     taskTimer.start(DIFFICULTY_TIMEOUT_MS[props.config.difficulty!], onTimeout);
@@ -107,7 +107,7 @@ function onSubmit(value: number) {
 }
 
 function onNext() {
-  currentTask.value = selector.next(activeProfile.value!);
+  currentTask.value = selector.next(activeProfile.value!, props.config);
   inputKey.value++;
   lastWasTimeout.value = false;
   attemptResult.value = null;
@@ -133,7 +133,7 @@ function restart() {
     sessionTimer.stop();
   }
   selector.reset();
-  currentTask.value = selector.next(activeProfile.value!);
+  currentTask.value = selector.next(activeProfile.value!, props.config);
   taskCount.value = 0;
   correctCount.value = 0;
   lastAnswer.value = null;

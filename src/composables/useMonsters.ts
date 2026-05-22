@@ -1,11 +1,13 @@
 import { computed } from 'vue';
 import type { ComputedRef } from 'vue';
-import type { MonsterType, CreatureKind, LeitnerBox } from '../types/index';
+import type { MonsterType, CreatureKind, LeitnerBox, Operation } from '../types/index';
 import { useProfiles } from './useProfiles';
 import { kindForBox } from '../utils/creature';
+import { parseTaskId } from '../utils/task';
 
 export interface CreatureEntry {
   taskId: string;
+  operation: Operation;
   a: number;
   b: number;
   monsterType: MonsterType;
@@ -19,17 +21,24 @@ export function useMonsters() {
   const allCreatures: ComputedRef<CreatureEntry[]> = computed(() => {
     const tasks = activeProfile.value?.tasks;
     if (!tasks) return [];
-    return Object.entries(tasks).map(([taskId, state]) => {
-      const [aPart, bPart] = taskId.split('x');
-      return {
-        taskId,
-        a: Number(aPart),
-        b: Number(bPart),
-        monsterType: state.monsterType,
-        box: state.box,
-        kind: kindForBox(state.box),
-      };
-    });
+    const entries: CreatureEntry[] = [];
+    for (const [taskId, state] of Object.entries(tasks)) {
+      try {
+        const task = parseTaskId(taskId);
+        entries.push({
+          taskId,
+          operation: task.operation,
+          a: task.a,
+          b: task.b,
+          monsterType: state.monsterType,
+          box: state.box,
+          kind: kindForBox(state.box),
+        });
+      } catch {
+        // Defensive: skip unknown task IDs
+      }
+    }
+    return entries;
   });
 
   const monsters: ComputedRef<CreatureEntry[]> = computed(() =>
@@ -69,6 +78,39 @@ export function useMonsters() {
     () => heroes.value.filter((e) => e.kind === 'gold').length
   );
 
+  /** Box-gruppiert pro Operation — was MonstersScreen direkt braucht. */
+  function monstersByBoxFor(op: Operation): Record<1 | 2 | 3, CreatureEntry[]> {
+    const result: Record<1 | 2 | 3, CreatureEntry[]> = { 1: [], 2: [], 3: [] };
+    for (const entry of allCreatures.value) {
+      if (entry.operation !== op) continue;
+      if (entry.box === 1 || entry.box === 2 || entry.box === 3) {
+        result[entry.box].push(entry);
+      }
+    }
+    for (const box of [1, 2, 3] as const) {
+      result[box].sort((a, b) => a.a * a.b - b.a * b.b);
+    }
+    return result;
+  }
+
+  /** Helden gefiltert nach Operation. */
+  function heroesFor(op: Operation): CreatureEntry[] {
+    return heroes.value.filter((e) => e.operation === op);
+  }
+
+  const mulMonsterCount: ComputedRef<number> = computed(
+    () => monsters.value.filter((e) => e.operation === 'mul').length
+  );
+  const divMonsterCount: ComputedRef<number> = computed(
+    () => monsters.value.filter((e) => e.operation === 'div').length
+  );
+  const mulHeroCount: ComputedRef<number> = computed(
+    () => heroes.value.filter((e) => e.operation === 'mul').length
+  );
+  const divHeroCount: ComputedRef<number> = computed(
+    () => heroes.value.filter((e) => e.operation === 'div').length
+  );
+
   return {
     allCreatures,
     monsters,
@@ -78,5 +120,11 @@ export function useMonsters() {
     heroCount,
     silverCount,
     goldCount,
+    monstersByBoxFor,
+    heroesFor,
+    mulMonsterCount,
+    divMonsterCount,
+    mulHeroCount,
+    divHeroCount,
   };
 }
